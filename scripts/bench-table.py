@@ -2,8 +2,8 @@
 """Run the criterion benchmarks and print a comparison table.
 
 For every benchmarked trait method, shows jolie's time alongside rand_distr's
-and statrs's as a percentage of jolie (100% = same speed, <100% = faster than
-jolie, >100% = slower). Methods with no equivalent show "-".
+and statrs's as a signed change vs jolie (+ = slower than jolie, - = faster).
+Methods with no equivalent show "-".
 
 Usage:
   uv run scripts/bench-table.py            # run benches, then print the table
@@ -73,7 +73,26 @@ def cell(results: dict[str, float], impl: str, baseline: float | None) -> str:
         return "-"
     if impl == "jolie" or baseline is None or baseline == 0:
         return fmt_ns(ns)
-    return f"{fmt_ns(ns)} ({ns / baseline * 100:.0f}%)"
+    diff = (ns / baseline - 1) * 100  # + = slower than jolie, - = faster
+    pct = "~0%" if abs(diff) < 0.5 else f"{diff:+.0f}%"
+    return f"{fmt_ns(ns)} ({pct})"
+
+
+def render_table(headers: list[str], rows: list[list[str]]) -> str:
+    """Markdown table with columns padded to a common width (terminal-readable).
+    Column 0 is left-aligned; the rest are right-aligned."""
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, c in enumerate(row):
+            widths[i] = max(widths[i], len(c))
+
+    def fmt(cells: list[str]) -> str:
+        out = [cells[0].ljust(widths[0])]
+        out += [c.rjust(widths[i]) for i, c in enumerate(cells[1:], start=1)]
+        return "| " + " | ".join(out) + " |"
+
+    sep = "| " + " | ".join("-" * w for w in widths) + " |"
+    return "\n".join([fmt(headers), sep, *(fmt(r) for r in rows)])
 
 
 def print_table(results: dict[str, dict[str, float]]) -> None:
@@ -83,16 +102,16 @@ def print_table(results: dict[str, dict[str, float]]) -> None:
         dist, _, method = group.partition("/")
         dists.setdefault(dist, []).append(method)
 
-    print("\n% is each impl's time relative to jolie (100% = same, <100% faster).\n")
+    headers = ["method", "jolie", "rand_distr", "statrs"]
+    print("\nΔ vs jolie: + = slower, − = faster (jolie is the baseline).\n")
     for dist in sorted(dists):
-        print(f"### {dist}\n")
-        print("| method | jolie | rand_distr | statrs |")
-        print("| --- | --- | --- | --- |")
+        rows = []
         for method in sorted(dists[dist]):
             row = results[f"{dist}/{method}"]
             base = row.get("jolie")
-            cells = " | ".join(cell(row, impl, base) for impl in IMPLS)
-            print(f"| {method} | {cells} |")
+            rows.append([method, *(cell(row, impl, base) for impl in IMPLS)])
+        print(f"### {dist}\n")
+        print(render_table(headers, rows))
         print()
 
 
