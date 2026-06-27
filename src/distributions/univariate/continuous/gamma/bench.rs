@@ -57,6 +57,73 @@ fn sample(c: &mut Criterion) {
     g.finish();
 }
 
+// Each sampler branch (Small / One / Large) is a distinct code path, so bench
+// them separately. scale = 1 (statrs rate = 1).
+fn sample_branch(c: &mut Criterion, name: &str, shape: f64) {
+    let jd = Gamma::shape_scale(shape, 1.0).unwrap();
+    let sd = StatrsGamma::new(shape, 1.0).unwrap();
+    let rd = RandGamma::new(shape, 1.0).unwrap();
+    let mut rng = StdRng::seed_from_u64(0xC0FFEE);
+    let mut rng8 = StdRng08::seed_from_u64(0xC0FFEE);
+
+    let mut g = c.benchmark_group(name);
+    g.bench_function("jolie", |b| {
+        b.iter(|| black_box(Sampleable::sample(&jd, &mut rng)))
+    });
+    g.bench_function("rand_distr", |b| b.iter(|| black_box(rng.sample(rd))));
+    g.bench_function("statrs", |b| {
+        b.iter(|| {
+            let v: f64 = rng8.sample(sd);
+            black_box(v)
+        })
+    });
+    g.finish();
+}
+
+fn sample_branches(c: &mut Criterion) {
+    sample_branch(c, "gamma/sample_shape_one", 1.0); // One (exponential) path
+    sample_branch(c, "gamma/sample_small_shape", 0.5); // Small (boost) path
+    sample_branch(c, "gamma/sample_large_shape", 100.0); // very large shape
+}
+
+// Algorithm-specific cdf/inverse_cdf branches: the Temme uniform-asymptotic cdf
+// (large shape) and the extreme-quantile / large-shape inverse_cdf init regions.
+fn tail_cases(c: &mut Criterion) {
+    let jd = Gamma::shape_scale(1e6, 1.0).unwrap();
+    let sd = StatrsGamma::new(1e6, 1.0).unwrap();
+    let mut g = c.benchmark_group("gamma/cdf_large_shape");
+    g.bench_function("jolie", |b| b.iter(|| black_box(jd.cdf(black_box(1e6)))));
+    g.bench_function("statrs", |b| b.iter(|| black_box(sd.cdf(black_box(1e6)))));
+    g.finish();
+
+    let jd = Gamma::shape_scale(5.0, 1.0).unwrap();
+    let sd = StatrsGamma::new(5.0, 1.0).unwrap();
+    for (name, p) in [
+        ("gamma/inverse_cdf_extreme_low", 0.001),
+        ("gamma/inverse_cdf_extreme_high", 0.999),
+    ] {
+        let mut g = c.benchmark_group(name);
+        g.bench_function("jolie", |b| {
+            b.iter(|| black_box(jd.inverse_cdf(black_box(p))))
+        });
+        g.bench_function("statrs", |b| {
+            b.iter(|| black_box(sd.inverse_cdf(black_box(p))))
+        });
+        g.finish();
+    }
+
+    let jd = Gamma::shape_scale(1000.0, 1.0).unwrap();
+    let sd = StatrsGamma::new(1000.0, 1.0).unwrap();
+    let mut g = c.benchmark_group("gamma/inverse_cdf_large_shape");
+    g.bench_function("jolie", |b| {
+        b.iter(|| black_box(jd.inverse_cdf(black_box(0.5))))
+    });
+    g.bench_function("statrs", |b| {
+        b.iter(|| black_box(sd.inverse_cdf(black_box(0.5))))
+    });
+    g.finish();
+}
+
 fn density(c: &mut Criterion) {
     let jd = jolie_dist();
     let sd = statrs_dist();
@@ -155,6 +222,6 @@ criterion_group! {
         .warm_up_time(Duration::from_millis(200))
         .measurement_time(Duration::from_millis(500))
         .sample_size(50);
-    targets = sample, density, cumulative, moments
+    targets = sample, sample_branches, density, cumulative, tail_cases, moments
 }
 criterion_main!(benches);
