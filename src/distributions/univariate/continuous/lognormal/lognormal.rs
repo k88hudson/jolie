@@ -66,7 +66,7 @@ crate::distributions::traits::impl_rand_distribution!(LogNormal<F: Float> => F);
 
 impl<F: Float> Distribution<F> for LogNormal<F> {
     fn log_pdf(&self, x: &F) -> F {
-        if *x <= F::zero() || !x.is_finite() {
+        if *x <= F::zero() {
             return F::neg_infinity();
         }
         if self.sigma == F::zero() {
@@ -77,6 +77,7 @@ impl<F: Float> Distribution<F> for LogNormal<F> {
                 F::neg_infinity()
             };
         }
+        // x = +inf yields -inf via IEEE; no explicit is_finite guard needed.
         let ln_x = x.ln();
         let z = (ln_x - self.mu) / self.sigma;
         let half = F::from(0.5).unwrap();
@@ -388,6 +389,14 @@ mod tests {
     fn non_finite_edge_cases() {
         let d = LogNormal::<f64>::new(0.0, 1.0).unwrap();
         assert_continuous_edge_cases(&d);
+    }
+
+    // log_pdf has no is_finite guard; pin the IEEE limits at +inf.
+    #[test]
+    fn density_at_infinity() {
+        let d = LogNormal::<f64>::new(0.0, 1.0).unwrap();
+        assert_eq!(d.pdf(&f64::INFINITY), 0.0);
+        assert_eq!(d.log_pdf(&f64::INFINITY), f64::NEG_INFINITY);
     }
 
     #[test]

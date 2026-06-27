@@ -67,9 +67,6 @@ crate::distributions::traits::impl_rand_distribution!(Normal<F: Float> => F);
 
 impl<F: Float> Distribution<F> for Normal<F> {
     fn log_pdf(&self, x: &F) -> F {
-        if !x.is_finite() {
-            return F::neg_infinity();
-        }
         if self.std_dev == F::zero() {
             return if *x == self.mean {
                 F::infinity()
@@ -77,6 +74,7 @@ impl<F: Float> Distribution<F> for Normal<F> {
                 F::neg_infinity()
             };
         }
+        // ±inf yields -inf via IEEE; no explicit is_finite guard needed.
         let z = (*x - self.mean) / self.std_dev;
         let half = F::from(0.5).unwrap();
         -half * F::from(LN_2PI).unwrap() - self.std_dev.ln() - half * z * z
@@ -349,6 +347,15 @@ mod tests {
     fn non_finite_edge_cases() {
         let d = Normal::<f64>::new(0.0, 1.0).unwrap();
         assert_continuous_edge_cases(&d);
+    }
+
+    // log_pdf has no is_finite guard; pin the IEEE limits at ±inf.
+    #[test]
+    fn density_at_infinity() {
+        let d = Normal::<f64>::new(0.0, 1.0).unwrap();
+        assert_eq!(d.pdf(&f64::INFINITY), 0.0);
+        assert_eq!(d.log_pdf(&f64::INFINITY), f64::NEG_INFINITY);
+        assert_eq!(d.log_pdf(&f64::NEG_INFINITY), f64::NEG_INFINITY);
     }
 
     #[test]
