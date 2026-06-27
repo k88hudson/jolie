@@ -421,67 +421,67 @@ fn erf_impl_f64(z: f64, inv: bool) -> f64 {
         let (r, b) = if z < 0.75 {
             (
                 polynomial_f64(z - 0.5, ERF_IMPL_BN) / polynomial_f64(z - 0.5, ERF_IMPL_BD),
-                0.3440242112,
+                0.3440242112_f32 as f64,
             )
         } else if z < 1.25 {
             (
                 polynomial_f64(z - 0.75, ERF_IMPL_CN) / polynomial_f64(z - 0.75, ERF_IMPL_CD),
-                0.419990927,
+                0.419990927_f32 as f64,
             )
         } else if z < 2.25 {
             (
                 polynomial_f64(z - 1.25, ERF_IMPL_DN) / polynomial_f64(z - 1.25, ERF_IMPL_DD),
-                0.4898625016,
+                0.4898625016_f32 as f64,
             )
         } else if z < 3.5 {
             (
                 polynomial_f64(z - 2.25, ERF_IMPL_EN) / polynomial_f64(z - 2.25, ERF_IMPL_ED),
-                0.5317370892,
+                0.5317370892_f32 as f64,
             )
         } else if z < 5.25 {
             (
                 polynomial_f64(z - 3.5, ERF_IMPL_FN) / polynomial_f64(z - 3.5, ERF_IMPL_FD),
-                0.5489973426,
+                0.5489973426_f32 as f64,
             )
         } else if z < 8.0 {
             (
                 polynomial_f64(z - 5.25, ERF_IMPL_GN) / polynomial_f64(z - 5.25, ERF_IMPL_GD),
-                0.5571740866,
+                0.5571740866_f32 as f64,
             )
         } else if z < 11.5 {
             (
                 polynomial_f64(z - 8.0, ERF_IMPL_HN) / polynomial_f64(z - 8.0, ERF_IMPL_HD),
-                0.5609807968,
+                0.5609807968_f32 as f64,
             )
         } else if z < 17.0 {
             (
                 polynomial_f64(z - 11.5, ERF_IMPL_IN) / polynomial_f64(z - 11.5, ERF_IMPL_ID),
-                0.5626493692,
+                0.5626493692_f32 as f64,
             )
         } else if z < 24.0 {
             (
                 polynomial_f64(z - 17.0, ERF_IMPL_JN) / polynomial_f64(z - 17.0, ERF_IMPL_JD),
-                0.5634598136,
+                0.5634598136_f32 as f64,
             )
         } else if z < 38.0 {
             (
                 polynomial_f64(z - 24.0, ERF_IMPL_KN) / polynomial_f64(z - 24.0, ERF_IMPL_KD),
-                0.5638477802,
+                0.5638477802_f32 as f64,
             )
         } else if z < 60.0 {
             (
                 polynomial_f64(z - 38.0, ERF_IMPL_LN) / polynomial_f64(z - 38.0, ERF_IMPL_LD),
-                0.5640528202,
+                0.5640528202_f32 as f64,
             )
         } else if z < 85.0 {
             (
                 polynomial_f64(z - 60.0, ERF_IMPL_MN) / polynomial_f64(z - 60.0, ERF_IMPL_MD),
-                0.5641309023,
+                0.5641309023_f32 as f64,
             )
         } else {
             (
                 polynomial_f64(z - 85.0, ERF_IMPL_NN) / polynomial_f64(z - 85.0, ERF_IMPL_ND),
-                0.5641584396,
+                0.5641584396_f32 as f64,
             )
         };
         let g = (-z * z).exp() / z;
@@ -576,17 +576,24 @@ mod tests {
     #[test]
     fn erfc_known_values() {
         assert_eq!(erfc(0.0_f64), 1.0);
-        assert!((erfc(1.0_f64) - 0.15729920705028513).abs() < 1e-10);
-        assert!((erfc(-1.0_f64) - 1.8427007929497148).abs() < 1e-10);
+        assert!((erfc(1.0_f64) - 0.15729920705028513).abs() < 1e-13);
+        assert!((erfc(-1.0_f64) - 1.8427007929497148).abs() < 1e-13);
         assert_eq!(erfc(f64::INFINITY), 0.0);
         assert_eq!(erfc(f64::NEG_INFINITY), 2.0);
+    }
+
+    #[test]
+    fn erfc_inv_boundaries() {
+        assert_eq!(erfc_inv(0.0_f64), f64::INFINITY);
+        assert_eq!(erfc_inv(2.0_f64), f64::NEG_INFINITY);
+        assert_eq!(erfc_inv(1.0_f64), 0.0);
     }
 
     #[test]
     fn erfc_inv_roundtrip() {
         for &x in &[0.1_f64, 0.5, 1.0, 1.5, 1.9] {
             let y = erfc(x);
-            assert!((erfc_inv(y) - x).abs() < 1e-9, "x={x}");
+            assert!((erfc_inv(y) - x).abs() < 1e-10, "x={x}");
         }
     }
 }

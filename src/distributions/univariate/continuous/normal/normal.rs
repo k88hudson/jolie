@@ -273,11 +273,11 @@ mod tests {
     #[test]
     fn reference_pdf_cdf_quantile_moments() {
         let data = load_reference(REFERENCE_JSON);
-        // 1e-10: erfc loses a little precision in the tails.
+        // Abs tol dominated by large-σ quantiles (erfc_inv scaled by σ).
         run_continuous_reference_tests(
             |mean, std_dev| Normal::<f64>::new(mean, std_dev).unwrap(),
             &data,
-            1e-10,
+            1e-11,
         );
     }
 
@@ -398,6 +398,13 @@ mod tests {
             let cdf_sum = d.cdf(mu + offset) + d.cdf(mu - offset);
             assert!((cdf_sum - 1.0).abs() < 1e-12);
         }
+    }
+
+    #[test]
+    fn inverse_cdf_extremes() {
+        let d = Normal::<f64>::new(0.0, 1.0).unwrap();
+        assert_eq!(d.inverse_cdf(0.0), f64::NEG_INFINITY);
+        assert_eq!(d.inverse_cdf(1.0), f64::INFINITY);
     }
 
     #[test]
