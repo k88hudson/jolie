@@ -1,14 +1,12 @@
 use num_traits::Float;
 use rand::Rng;
 
+use crate::constants::{LN_2PI, LN_2PI_E};
 use crate::distributions::traits::*;
 use crate::error::DistributionError;
 use crate::special::erf::{erfc, erfc_inv};
 use crate::special::sampling::standard_normal;
 use crate::unchecked::Unchecked;
-
-const LN_2PI: f64 = 1.8378770664093453;
-const LN_2PI_E: f64 = 2.8378770664093453;
 
 /// Normal (Gaussian) distribution N(μ, σ²). `std_dev = 0` degenerates to a
 /// point mass at μ.

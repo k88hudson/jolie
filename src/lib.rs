@@ -2,6 +2,7 @@
 // (e.g. `uniform/uniform.rs`); allow that deliberate layout crate-wide.
 #![allow(clippy::module_inception)]
 
+pub(crate) mod constants;
 pub mod distributions;
 pub mod error;
 pub(crate) mod special;
