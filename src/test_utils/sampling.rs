@@ -106,7 +106,7 @@ where
     F: Float + Into<f64>,
     K: DiscreteInt,
 {
-    use crate::special::gamma::regularized_gamma_inc;
+    use crate::special::gamma::regularized_gamma_compl;
 
     let (a, b) = support;
     let range = K::range_size(a, b);
@@ -151,6 +151,7 @@ where
     let df = df.saturating_sub(1);
     assert!(df > 0, "chi_square_pmf_pvalue: not enough bins for df > 0");
 
-    // p-value = P(χ²_df > chi2) = Q(df/2, chi2/2) (upper regularized gamma)
-    regularized_gamma_inc(df as f64 / 2.0, chi2 / 2.0)
+    // p-value = P(χ²_df > chi2) = Q(df/2, chi2/2), the upper regularized gamma
+    // (survival), so an inflated χ² drives the p-value toward 0.
+    regularized_gamma_compl(df as f64 / 2.0, chi2 / 2.0)
 }
