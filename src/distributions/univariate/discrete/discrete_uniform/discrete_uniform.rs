@@ -346,7 +346,10 @@ mod tests {
             let v = d.sample(&mut rng) as usize;
             seen[v] = true;
         }
-        assert!(seen.iter().all(|&s| s), "not all values in [0,4] were sampled");
+        assert!(
+            seen.iter().all(|&s| s),
+            "not all values in [0,4] were sampled"
+        );
     }
 
     #[test]

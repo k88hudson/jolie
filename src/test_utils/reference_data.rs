@@ -119,13 +119,31 @@ where
         // PDF / CDF point evaluations
         for pt in &case.pdf_cdf {
             if let Some(expected_pdf) = pt.pdf {
-                assert_close(dist.pdf(&pt.x), expected_pdf, tol, &format!("pdf({})", pt.x), case);
+                assert_close(
+                    dist.pdf(&pt.x),
+                    expected_pdf,
+                    tol,
+                    &format!("pdf({})", pt.x),
+                    case,
+                );
             }
             if let Some(expected_cdf) = pt.cdf {
-                assert_close(dist.cdf(pt.x), expected_cdf, tol, &format!("cdf({})", pt.x), case);
+                assert_close(
+                    dist.cdf(pt.x),
+                    expected_cdf,
+                    tol,
+                    &format!("cdf({})", pt.x),
+                    case,
+                );
             }
             if let Some(expected_ccdf) = pt.ccdf {
-                assert_close(dist.ccdf(pt.x), expected_ccdf, tol, &format!("ccdf({})", pt.x), case);
+                assert_close(
+                    dist.ccdf(pt.x),
+                    expected_ccdf,
+                    tol,
+                    &format!("ccdf({})", pt.x),
+                    case,
+                );
             }
             if let Some(expected_log_pdf) = pt.log_pdf {
                 assert_close(
@@ -224,7 +242,13 @@ where
                 assert_close(dist.cdf(x), expected_cdf, tol, &format!("cdf({})", x), case);
             }
             if let Some(expected_ccdf) = pt.ccdf {
-                assert_close(dist.ccdf(x), expected_ccdf, tol, &format!("ccdf({})", x), case);
+                assert_close(
+                    dist.ccdf(x),
+                    expected_ccdf,
+                    tol,
+                    &format!("ccdf({})", x),
+                    case,
+                );
             }
             if let Some(expected_log_pdf) = pt.log_pdf {
                 assert_close(
@@ -306,25 +330,19 @@ pub fn run_discrete_np_reference_tests_with_entropy_tol<D, K, C>(
             assert_close(dist.variance().unwrap(), expected, tol, "variance", case);
         }
         if let Some(expected) = m.entropy {
-            assert_close(dist.entropy().unwrap(), expected, entropy_tol, "entropy", case);
+            assert_close(
+                dist.entropy().unwrap(),
+                expected,
+                entropy_tol,
+                "entropy",
+                case,
+            );
         }
         if let Some(expected) = m.skewness {
-            assert_close(
-                dist.skewness().unwrap(),
-                expected,
-                tol,
-                "skewness",
-                case,
-            );
+            assert_close(dist.skewness().unwrap(), expected, tol, "skewness", case);
         }
         if let Some(expected) = m.kurtosis {
-            assert_close(
-                dist.kurtosis().unwrap(),
-                expected,
-                tol,
-                "kurtosis",
-                case,
-            );
+            assert_close(dist.kurtosis().unwrap(), expected, tol, "kurtosis", case);
         }
 
         for pt in &case.pdf_cdf {
@@ -400,22 +418,10 @@ where
             assert_close(dist.entropy().unwrap(), expected, tol, "entropy", case);
         }
         if let Some(expected) = m.skewness {
-            assert_close(
-                dist.skewness().unwrap(),
-                expected,
-                tol,
-                "skewness",
-                case,
-            );
+            assert_close(dist.skewness().unwrap(), expected, tol, "skewness", case);
         }
         if let Some(expected) = m.kurtosis {
-            assert_close(
-                dist.kurtosis().unwrap(),
-                expected,
-                tol,
-                "kurtosis",
-                case,
-            );
+            assert_close(dist.kurtosis().unwrap(), expected, tol, "kurtosis", case);
         }
 
         for pt in &case.pdf_cdf {
