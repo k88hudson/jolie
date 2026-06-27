@@ -13,8 +13,8 @@ use crate::distributions::traits::*;
 use crate::error::DistributionError;
 
 use super::{
-    DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, LogNormal,
-    LogNormalParams, Normal, NormalParams, Uniform, UniformParams,
+    DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Gamma, GammaParams,
+    LogNormal, LogNormalParams, Normal, NormalParams, Uniform, UniformParams,
 };
 
 // ============================== Continuous ==============================
@@ -26,6 +26,7 @@ pub enum AnyContinuous<F: Float> {
     Exponential(Exponential<F>),
     Normal(Normal<F>),
     LogNormal(LogNormal<F>),
+    Gamma(Gamma<F>),
 }
 
 /// Serializable parameters for [`AnyContinuous`], internally tagged by `"type"`.
@@ -37,6 +38,7 @@ pub enum AnyContinuousParams<F> {
     Exponential(ExponentialParams<F>),
     Normal(NormalParams<F>),
     LogNormal(LogNormalParams<F>),
+    Gamma(GammaParams<F>),
 }
 
 impl<F: Float> Sampleable for AnyContinuous<F> {
@@ -49,6 +51,7 @@ impl<F: Float> Sampleable for AnyContinuous<F> {
             Self::Exponential(d) => d.sample(rng),
             Self::Normal(d) => d.sample(rng),
             Self::LogNormal(d) => d.sample(rng),
+            Self::Gamma(d) => d.sample(rng),
         }
     }
 }
@@ -60,6 +63,7 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
             Self::Exponential(d) => d.log_pdf(x),
             Self::Normal(d) => d.log_pdf(x),
             Self::LogNormal(d) => d.log_pdf(x),
+            Self::Gamma(d) => d.log_pdf(x),
         }
     }
 
@@ -69,6 +73,7 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
             Self::Exponential(d) => d.pdf(x),
             Self::Normal(d) => d.pdf(x),
             Self::LogNormal(d) => d.pdf(x),
+            Self::Gamma(d) => d.pdf(x),
         }
     }
 }
@@ -82,6 +87,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Exponential(d) => d.cdf(x),
             Self::Normal(d) => d.cdf(x),
             Self::LogNormal(d) => d.cdf(x),
+            Self::Gamma(d) => d.cdf(x),
         }
     }
 
@@ -91,6 +97,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Exponential(d) => d.inverse_cdf(p),
             Self::Normal(d) => d.inverse_cdf(p),
             Self::LogNormal(d) => d.inverse_cdf(p),
+            Self::Gamma(d) => d.inverse_cdf(p),
         }
     }
 
@@ -100,6 +107,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Exponential(d) => d.ccdf(x),
             Self::Normal(d) => d.ccdf(x),
             Self::LogNormal(d) => d.ccdf(x),
+            Self::Gamma(d) => d.ccdf(x),
         }
     }
 
@@ -109,6 +117,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Exponential(d) => d.support(),
             Self::Normal(d) => d.support(),
             Self::LogNormal(d) => d.support(),
+            Self::Gamma(d) => d.support(),
         }
     }
 
@@ -118,6 +127,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Exponential(d) => AnyContinuousParams::Exponential(d.params()),
             Self::Normal(d) => AnyContinuousParams::Normal(d.params()),
             Self::LogNormal(d) => AnyContinuousParams::LogNormal(d.params()),
+            Self::Gamma(d) => AnyContinuousParams::Gamma(d.params()),
         }
     }
 
@@ -127,6 +137,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             AnyContinuousParams::Exponential(p) => Self::Exponential(Exponential::from_params(p)?),
             AnyContinuousParams::Normal(p) => Self::Normal(Normal::from_params(p)?),
             AnyContinuousParams::LogNormal(p) => Self::LogNormal(LogNormal::from_params(p)?),
+            AnyContinuousParams::Gamma(p) => Self::Gamma(Gamma::from_params(p)?),
         })
     }
 }
@@ -152,6 +163,12 @@ impl<F: Float> From<Normal<F>> for AnyContinuous<F> {
 impl<F: Float> From<LogNormal<F>> for AnyContinuous<F> {
     fn from(d: LogNormal<F>) -> Self {
         Self::LogNormal(d)
+    }
+}
+
+impl<F: Float> From<Gamma<F>> for AnyContinuous<F> {
+    fn from(d: Gamma<F>) -> Self {
+        Self::Gamma(d)
     }
 }
 
@@ -337,6 +354,33 @@ mod tests {
     }
 
     #[test]
+    fn continuous_gamma_from_params_and_delegation() {
+        // Gamma(1, scale) is Exponential(scale): cdf(x) = 1 - e^(-x/scale).
+        let p = AnyContinuousParams::Gamma(GammaParams::ShapeScale {
+            shape: 1.0,
+            scale: 2.0,
+        });
+        let d = AnyContinuous::<f64>::from_params(p).unwrap();
+        assert_eq!(d.support(), (0.0, f64::INFINITY));
+        assert!((d.cdf(2.0) - (1.0 - (-1.0_f64).exp())).abs() < 1e-12);
+        assert!((d.ccdf(2.0) - (-1.0_f64).exp()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn continuous_gamma_from_rate_params() {
+        let p = AnyContinuousParams::Gamma(GammaParams::ShapeRate {
+            shape: 2.0,
+            rate: 0.5,
+        });
+        let d = AnyContinuous::<f64>::from_params(p).unwrap();
+        // rate 0.5 -> scale 2 -> mean = shape*scale = 4
+        match d {
+            AnyContinuous::Gamma(g) => assert!((g.scale() - 2.0).abs() < 1e-12),
+            _ => panic!("expected Gamma"),
+        }
+    }
+
+    #[test]
     fn discrete_from_params_and_delegation() {
         let p = AnyDiscreteParams::DiscreteUniform(DiscreteUniformParams { a: 0, b: 9 });
         let d = AnyDiscrete::<f64>::from_params(p).unwrap();
@@ -395,6 +439,27 @@ mod tests {
         assert_eq!(s, r#"{"type":"LogNormal","mu":1.5,"sigma":2.0}"#);
         let d2 = AnyContinuous::<f64>::from_json_str(&s).unwrap();
         assert_eq!(d, d2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn continuous_gamma_json_round_trip() {
+        let d = AnyContinuous::from(Gamma::<f64>::shape_scale(2.0, 1.5).unwrap());
+        let s = d.to_json_string();
+        assert_eq!(s, r#"{"type":"Gamma","shape":2.0,"scale":1.5}"#);
+        let d2 = AnyContinuous::<f64>::from_json_str(&s).unwrap();
+        assert_eq!(d, d2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn continuous_gamma_json_from_rate() {
+        let json = r#"{"type":"Gamma","shape":2.0,"rate":0.5}"#;
+        let d = AnyContinuous::<f64>::from_json_str(json).unwrap();
+        match d {
+            AnyContinuous::Gamma(g) => assert!((g.scale() - 2.0).abs() < 1e-12),
+            _ => panic!("expected Gamma"),
+        }
     }
 
     #[cfg(feature = "serde")]

@@ -370,6 +370,64 @@ generate_lognormal <- function(out_root) {
   write_json(data, file.path(out_root, "continuous", "lognormal", "test_reference.json"))
 }
 
+generate_gamma <- function(out_root) {
+  parameterizations <- list(
+    c(1.0, 1.0), c(2.0, 1.0), c(5.0, 2.0), c(0.5, 1.0),
+    c(10.0, 0.5), c(0.1, 10.0), c(100.0, 0.01)
+  )
+  quantile_probs <- c(0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(parameterizations, function(ss) {
+    shape <- ss[1]; scale <- ss[2]
+    mean_val <- shape * scale
+    variance <- shape * scale^2
+    std      <- sqrt(variance)
+    # Mode exists only for shape >= 1.
+    mode_val <- if (shape >= 1) (shape - 1) * scale else NA_real_
+    moments <- make_moments(
+      mean     = mean_val,
+      variance = variance,
+      skewness = 2 / sqrt(shape),
+      kurtosis = 6 / shape,                                            # excess
+      entropy  = shape + log(scale) + lgamma(shape) + (1 - shape) * digamma(shape),
+      mode     = mode_val
+    )
+
+    low <- max(0.01, mean_val - 2 * std)
+    points <- sort(unique(c(
+      0.0, low, max(0.1, mean_val - std), mean_val * 0.5,
+      mean_val, mean_val + std, mean_val + 2 * std, mean_val + 3 * std
+    )))
+
+    pdf_fn     <- function(x) dgamma(x, shape = shape, scale = scale)
+    cdf_fn     <- function(x) pgamma(x, shape = shape, scale = scale)
+    log_pdf_fn <- function(x) dgamma(x, shape = shape, scale = scale, log = TRUE)
+    quant_fn   <- function(p) qgamma(p, shape = shape, scale = scale)
+
+    log_pdf_below <- dgamma(qgamma(0, shape = shape, scale = scale) - 1,
+                            shape = shape, scale = scale, log = TRUE)
+    log_pdf_above <- dgamma(qgamma(1, shape = shape, scale = scale) + 1,
+                            shape = shape, scale = scale, log = TRUE)
+
+    list(
+      params     = list(a = unbox(shape), b = unbox(scale)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(pgamma(-Inf, shape = shape, scale = scale)),
+        cdf_pos_inf           = unbox(pgamma(Inf,  shape = shape, scale = scale)),
+        log_pdf_below_support = unbox(safe_num(log_pdf_below)),
+        log_pdf_above_support = unbox(safe_num(log_pdf_above))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("Gamma"), cases = cases)
+  write_json(data, file.path(out_root, "continuous", "gamma", "test_reference.json"))
+}
+
 # ── Main ────────────────────────────────────────────────────────────────
 
 main <- function() {
@@ -378,6 +436,7 @@ main <- function() {
   generate_exponential(UNIV_ROOT)
   generate_normal(UNIV_ROOT)
   generate_lognormal(UNIV_ROOT)
+  generate_gamma(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
   cat("Done.\n")
 }
