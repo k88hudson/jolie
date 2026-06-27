@@ -1,0 +1,27 @@
+# Run all tests
+[tasks.test]
+run = "cargo test"
+
+# Type-check all targets without building artifacts
+[tasks.check]
+run = "cargo check --all-targets"
+
+# Format the code
+[tasks.fmt]
+run = "cargo fmt"
+
+# Verify formatting without modifying files (CI-friendly)
+[tasks.fmt-check]
+run = "cargo fmt --check"
+
+# Lint with clippy across all targets
+[tasks.lint]
+run = "cargo clippy --all-targets"
+
+# Regenerate the R-computed reference data (needs R + jsonlite)
+[tasks.gen-reference]
+run = "Rscript scripts/generate_reference_data.R"
+
+# Format, lint, and test in one shot
+[tasks.ci]
+run_serial = ["plz:fmt-check", "plz:lint", "plz:test"]
