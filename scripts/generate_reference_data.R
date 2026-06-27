@@ -259,12 +259,62 @@ generate_exponential <- function(out_root) {
   write_json(data, file.path(out_root, "continuous", "exponential", "test_reference.json"))
 }
 
+generate_normal <- function(out_root) {
+  parameterizations <- list(
+    c(0.0, 1.0), c(5.0, 2.0), c(0.0, 0.01), c(0.0, 100.0),
+    c(-10.0, 3.0), c(1000.0, 50.0)
+  )
+  quantile_probs <- c(0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(parameterizations, function(ms) {
+    mu <- ms[1]; sigma <- ms[2]
+    moments <- make_moments(
+      mean     = mu,
+      variance = sigma^2,
+      skewness = 0.0,
+      kurtosis = 0.0,                # excess
+      entropy  = 0.5 * log(2 * pi * exp(1) * sigma^2),
+      mode     = mu
+    )
+
+    points <- sort(unique(c(
+      mu - 4 * sigma, mu - 3 * sigma, mu - 2 * sigma, mu - sigma, mu - 0.5 * sigma,
+      mu, mu + 0.5 * sigma, mu + sigma, mu + 2 * sigma, mu + 3 * sigma, mu + 4 * sigma
+    )))
+
+    pdf_fn     <- function(x) dnorm(x, mean = mu, sd = sigma)
+    cdf_fn     <- function(x) pnorm(x, mean = mu, sd = sigma)
+    log_pdf_fn <- function(x) dnorm(x, mean = mu, sd = sigma, log = TRUE)
+    quant_fn   <- function(p) qnorm(p, mean = mu, sd = sigma)
+
+    list(
+      params     = list(a = unbox(mu), b = unbox(sigma)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(pnorm(-Inf, mean = mu, sd = sigma)),
+        cdf_pos_inf           = unbox(pnorm(Inf,  mean = mu, sd = sigma)),
+        log_pdf_below_support = unbox(safe_num(dnorm(qnorm(0, mean = mu, sd = sigma) - 1,
+                                                     mean = mu, sd = sigma, log = TRUE))),
+        log_pdf_above_support = unbox(safe_num(dnorm(qnorm(1, mean = mu, sd = sigma) + 1,
+                                                     mean = mu, sd = sigma, log = TRUE)))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("Normal"), cases = cases)
+  write_json(data, file.path(out_root, "continuous", "normal", "test_reference.json"))
+}
+
 # ── Main ────────────────────────────────────────────────────────────────
 
 main <- function() {
   cat("Generating reference data (R)...\n")
   generate_uniform(UNIV_ROOT)
   generate_exponential(UNIV_ROOT)
+  generate_normal(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
   cat("Done.\n")
 }

@@ -1,5 +1,6 @@
-//! Special functions and sampling helpers, ported from julie as distributions
-//! need them. Currently just the ziggurat exponential sampler.
+//! Special functions and sampling helpers.
 
+pub(crate) mod erf;
+mod evaluate;
 pub(crate) mod sampling;
 mod ziggurat_tables;

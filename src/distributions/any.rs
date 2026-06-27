@@ -13,7 +13,8 @@ use crate::distributions::traits::*;
 use crate::error::DistributionError;
 
 use super::{
-    DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Uniform, UniformParams,
+    DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Normal, NormalParams,
+    Uniform, UniformParams,
 };
 
 // ============================== Continuous ==============================
@@ -23,6 +24,7 @@ use super::{
 pub enum AnyContinuous<F: Float> {
     Uniform(Uniform<F>),
     Exponential(Exponential<F>),
+    Normal(Normal<F>),
 }
 
 /// Serializable parameters for [`AnyContinuous`], internally tagged by `"type"`.
@@ -32,6 +34,7 @@ pub enum AnyContinuous<F: Float> {
 pub enum AnyContinuousParams<F> {
     Uniform(UniformParams<F>),
     Exponential(ExponentialParams<F>),
+    Normal(NormalParams<F>),
 }
 
 impl<F: Float> Sampleable for AnyContinuous<F> {
@@ -42,6 +45,7 @@ impl<F: Float> Sampleable for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.sample(rng),
             Self::Exponential(d) => d.sample(rng),
+            Self::Normal(d) => d.sample(rng),
         }
     }
 }
@@ -51,6 +55,7 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.log_pdf(x),
             Self::Exponential(d) => d.log_pdf(x),
+            Self::Normal(d) => d.log_pdf(x),
         }
     }
 
@@ -58,6 +63,7 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.pdf(x),
             Self::Exponential(d) => d.pdf(x),
+            Self::Normal(d) => d.pdf(x),
         }
     }
 }
@@ -69,6 +75,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.cdf(x),
             Self::Exponential(d) => d.cdf(x),
+            Self::Normal(d) => d.cdf(x),
         }
     }
 
@@ -76,6 +83,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.inverse_cdf(p),
             Self::Exponential(d) => d.inverse_cdf(p),
+            Self::Normal(d) => d.inverse_cdf(p),
         }
     }
 
@@ -83,6 +91,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.ccdf(x),
             Self::Exponential(d) => d.ccdf(x),
+            Self::Normal(d) => d.ccdf(x),
         }
     }
 
@@ -90,6 +99,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => d.support(),
             Self::Exponential(d) => d.support(),
+            Self::Normal(d) => d.support(),
         }
     }
 
@@ -97,6 +107,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
         match self {
             Self::Uniform(d) => AnyContinuousParams::Uniform(d.params()),
             Self::Exponential(d) => AnyContinuousParams::Exponential(d.params()),
+            Self::Normal(d) => AnyContinuousParams::Normal(d.params()),
         }
     }
 
@@ -104,6 +115,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
         Ok(match params {
             AnyContinuousParams::Uniform(p) => Self::Uniform(Uniform::from_params(p)?),
             AnyContinuousParams::Exponential(p) => Self::Exponential(Exponential::from_params(p)?),
+            AnyContinuousParams::Normal(p) => Self::Normal(Normal::from_params(p)?),
         })
     }
 }
@@ -117,6 +129,12 @@ impl<F: Float> From<Uniform<F>> for AnyContinuous<F> {
 impl<F: Float> From<Exponential<F>> for AnyContinuous<F> {
     fn from(d: Exponential<F>) -> Self {
         Self::Exponential(d)
+    }
+}
+
+impl<F: Float> From<Normal<F>> for AnyContinuous<F> {
+    fn from(d: Normal<F>) -> Self {
+        Self::Normal(d)
     }
 }
 
@@ -277,6 +295,18 @@ mod tests {
     }
 
     #[test]
+    fn continuous_normal_from_params_and_delegation() {
+        let p = AnyContinuousParams::Normal(NormalParams {
+            mean: 0.0,
+            std_dev: 1.0,
+        });
+        let d = AnyContinuous::<f64>::from_params(p).unwrap();
+        assert_eq!(d.support(), (f64::NEG_INFINITY, f64::INFINITY));
+        assert!((d.cdf(0.0) - 0.5).abs() < 1e-12);
+        assert!((d.inverse_cdf(0.5)).abs() < 1e-12);
+    }
+
+    #[test]
     fn discrete_from_params_and_delegation() {
         let p = AnyDiscreteParams::DiscreteUniform(DiscreteUniformParams { a: 0, b: 9 });
         let d = AnyDiscrete::<f64>::from_params(p).unwrap();
@@ -315,6 +345,16 @@ mod tests {
             AnyContinuous::Exponential(e) => assert!((e.scale() - 2.0).abs() < 1e-12),
             _ => panic!("expected Exponential"),
         }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn continuous_normal_json_round_trip() {
+        let d = AnyContinuous::from(Normal::<f64>::new(1.5, 2.0).unwrap());
+        let s = d.to_json_string();
+        assert_eq!(s, r#"{"type":"Normal","mean":1.5,"std_dev":2.0}"#);
+        let d2 = AnyContinuous::<f64>::from_json_str(&s).unwrap();
+        assert_eq!(d, d2);
     }
 
     #[cfg(feature = "serde")]

@@ -1,13 +1,53 @@
-//! Sampling helpers shared across distributions, ported from julie (ziggurat
-//! samplers originally adapted from rand_distr, Apache-2.0 / MIT).
+//! Ziggurat samplers (ZIGNOR variant, Doornik 2005; adapted from rand_distr,
+//! Apache-2.0 / MIT).
 
 use super::ziggurat_tables;
 use rand::{Rng, RngExt};
 
-/// Sample from the standard exponential distribution Exp(1) using the ZIGNOR
-/// variant of the ziggurat method (Doornik 2005).
-///
-/// Adapted from rand_distr (Apache-2.0 / MIT).
+/// Sample from the standard normal N(0,1) via the ziggurat method.
+#[inline]
+pub(crate) fn standard_normal<R: Rng + ?Sized>(rng: &mut R) -> f64 {
+    #[inline]
+    fn pdf(x: f64) -> f64 {
+        (-x * x / 2.0).exp()
+    }
+
+    #[inline]
+    fn tail_sample<R: Rng + ?Sized>(rng: &mut R, negative: bool) -> f64 {
+        let r = ziggurat_tables::ZIG_NORM_R;
+        loop {
+            let x = -rng.random::<f64>().ln() / r;
+            let y = -rng.random::<f64>().ln();
+            if 2.0 * y >= x * x {
+                return if negative { -(r + x) } else { r + x };
+            }
+        }
+    }
+
+    let x_tab = &ziggurat_tables::ZIG_NORM_X;
+    let f_tab = &ziggurat_tables::ZIG_NORM_F;
+
+    loop {
+        let bits = rng.next_u64();
+        let i = (bits & 0xff) as usize;
+
+        // upper 52 bits -> float in [-1, 1)
+        let u = f64::from_bits((bits >> 12) | 0x4000000000000000u64) - 3.0;
+        let x = u * x_tab[i];
+
+        if x.abs() < x_tab[i + 1] {
+            return x;
+        }
+        if i == 0 {
+            return tail_sample(rng, u < 0.0);
+        }
+        if f_tab[i + 1] + (f_tab[i] - f_tab[i + 1]) * rng.random::<f64>() < pdf(x) {
+            return x;
+        }
+    }
+}
+
+/// Sample from the standard exponential Exp(1) via the ziggurat method.
 #[inline]
 pub(crate) fn standard_exponential<R: Rng + ?Sized>(rng: &mut R) -> f64 {
     #[inline]
@@ -55,6 +95,48 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
+
+    #[test]
+    fn standard_normal_mean_variance() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let n = 100_000;
+        let samples: Vec<f64> = (0..n).map(|_| standard_normal(&mut rng)).collect();
+        let mean = samples.iter().sum::<f64>() / n as f64;
+        let var = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+        assert!(mean.abs() < 0.01, "mean = {mean}, expected ~0");
+        assert!((var - 1.0).abs() < 0.02, "var = {var}, expected ~1");
+    }
+
+    #[test]
+    fn standard_normal_symmetry() {
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+        let n = 100_000;
+        let neg = (0..n).filter(|_| standard_normal(&mut rng) < 0.0).count();
+        let frac = neg as f64 / n as f64;
+        assert!((frac - 0.5).abs() < 0.01, "negative fraction = {frac}");
+    }
+
+    #[test]
+    fn standard_normal_tail_mass() {
+        let cases: &[(f64, f64)] = &[
+            (1.0, 0.31731050786291404),
+            (2.0, 0.04550026389635842),
+            (3.0, 0.0026997960632601866),
+            (4.0, 6.334248366623985e-5),
+        ];
+        let mut rng = ChaCha8Rng::seed_from_u64(20260417);
+        let n: usize = 5_000_000;
+        let samples: Vec<f64> = (0..n).map(|_| standard_normal(&mut rng)).collect();
+        for &(t, expected) in cases {
+            let observed = samples.iter().filter(|x| x.abs() > t).count() as f64 / n as f64;
+            let stderr = (expected * (1.0 - expected) / n as f64).sqrt();
+            let z = (observed - expected) / stderr;
+            assert!(
+                z.abs() < 6.0,
+                "P(|X|>{t}): observed={observed:.7}, z={z:+.2}"
+            );
+        }
+    }
 
     #[test]
     fn standard_exponential_mean_variance() {
