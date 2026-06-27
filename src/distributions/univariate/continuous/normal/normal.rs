@@ -269,11 +269,10 @@ mod tests {
     #[test]
     fn reference_pdf_cdf_quantile_moments() {
         let data = load_reference(REFERENCE_JSON);
-        // Abs tol dominated by large-σ quantiles (erfc_inv scaled by σ).
         run_continuous_reference_tests(
             |mean, std_dev| Normal::<f64>::new(mean, std_dev).unwrap(),
             &data,
-            1e-11,
+            1e-12,
         );
     }
 

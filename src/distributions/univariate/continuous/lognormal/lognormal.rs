@@ -304,21 +304,8 @@ mod tests {
         run_continuous_reference_tests(
             |mu, sigma| LogNormal::<f64>::new(mu, sigma).unwrap(),
             &data,
-            1e-10,
+            1e-12,
         );
-    }
-
-    // Large σ kurtosis/skewness grow as exp(4σ²)/exp(σ²); checked here with a
-    // relative tolerance (the reference test uses an absolute one).
-    #[test]
-    fn large_sigma_moments() {
-        let d = LogNormal::<f64>::new(0.0, 2.0).unwrap();
-        let skew = d.skewness().unwrap();
-        let kurt = d.kurtosis().unwrap();
-        let skew_ref = 414.359343300147; // scipy lognorm(s=2) skew
-        let kurt_ref = 9_220_556.977307005; // scipy excess kurtosis
-        assert!((skew / skew_ref - 1.0).abs() < 1e-12, "skew {skew}");
-        assert!((kurt / kurt_ref - 1.0).abs() < 1e-12, "kurt {kurt}");
     }
 
     #[test]

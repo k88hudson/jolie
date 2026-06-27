@@ -320,15 +320,11 @@ generate_lognormal <- function(out_root) {
     mean_val <- exp(mu + s2 / 2)
     variance <- (exp(s2) - 1) * exp(2 * mu + s2)
     std      <- sqrt(variance)
-    kurt     <- exp(4 * s2) + 2 * exp(3 * s2) + 3 * exp(2 * s2) - 6   # excess
-    # Kurtosis grows as exp(4σ²); skip the reference check when it exceeds what
-    # an absolute 1e-10 comparison can resolve (covered by a relative-tol test).
-    kurt_ref <- if (kurt < 1e5) kurt else NA_real_
     moments <- make_moments(
       mean     = mean_val,
       variance = variance,
       skewness = (exp(s2) + 2) * sqrt(exp(s2) - 1),
-      kurtosis = kurt_ref,
+      kurtosis = exp(4 * s2) + 2 * exp(3 * s2) + 3 * exp(2 * s2) - 6,   # excess
       entropy  = mu + log(sigma) + 0.5 * log(2 * pi) + 0.5,
       mode     = exp(mu - s2)
     )

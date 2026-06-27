@@ -476,9 +476,13 @@ fn assert_close(actual: f64, expected: f64, tol: f64, label: &str, case: &TestCa
     } else {
         format!("a={}, b={}", case.params.a, case.params.b)
     };
+    // Mixed tolerance: absolute when |expected| <= 1, relative above. Keeps
+    // pdf/cdf checks tight while letting large-magnitude moments (e.g. lognormal
+    // kurtosis) be bounded relatively.
+    let threshold = tol * expected.abs().max(1.0);
     assert!(
-        (actual - expected).abs() < tol,
-        "{label} for params {params_desc}: got {actual}, expected {expected}, diff={}",
+        (actual - expected).abs() < threshold,
+        "{label} for params {params_desc}: got {actual}, expected {expected}, diff={}, tol={threshold}",
         (actual - expected).abs(),
     );
 }
