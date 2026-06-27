@@ -1,0 +1,220 @@
+#!/usr/bin/env Rscript
+
+# Generate reference test data for jolie distributions using R.
+# Requires: jsonlite
+#
+# Ground truth: R's d/p/q for built-in distributions, closed-form moments
+# computed analytically in this script. Ported from julie's generator,
+# trimmed to the distributions jolie has implemented and extended to cover
+# every numeric trait method jolie tests against reference data:
+#   - point evals add `ccdf` (R lower.tail=FALSE) and `log_cdf` (R log.p=TRUE)
+#   - moments add `mode`
+# `mode` has no R d/p/q equivalent and is convention-dependent for the uniform
+# families (the density is flat), so it is the analytic value jolie's impl
+# returns: the midpoint for Uniform, the lower bound for DiscreteUniform.
+# Caveats:
+#   - digits = 17 in toJSON over-specifies but guarantees f64 round-trip.
+
+suppressPackageStartupMessages(library(jsonlite))
+
+# Anchor paths off the script location. Must be invoked via `Rscript <path>`,
+# not sourced.
+script_args <- commandArgs(trailingOnly = FALSE)
+file_arg <- grep("^--file=", script_args, value = TRUE)
+if (length(file_arg) != 1) {
+  stop("must be invoked via `Rscript scripts/generate_reference_data.R` (found no --file= arg)")
+}
+script_dir <- dirname(normalizePath(sub("^--file=", "", file_arg)))
+REPO <- dirname(script_dir)
+UNIV_ROOT <- file.path(REPO, "src", "distributions", "univariate")
+if (!dir.exists(UNIV_ROOT)) {
+  stop(sprintf("expected repo layout at %s; got nothing. Check invocation path.", UNIV_ROOT))
+}
+
+# ── Helpers ─────────────────────────────────────────────────────────────
+
+safe_num <- function(v) {
+  # `any(...)` keeps this scalar-safe even if a vector slips in: bare `||` on a
+  # length>1 logical is a hard error on R >= 4.3.
+  if (length(v) == 0 || any(is.na(v)) || any(!is.finite(v))) NA_real_ else v
+}
+
+make_moments <- function(mean, variance, skewness, kurtosis, entropy, mode = NA_real_) {
+  list(
+    mean     = unbox(safe_num(mean)),
+    variance = unbox(safe_num(variance)),
+    skewness = unbox(safe_num(skewness)),
+    kurtosis = unbox(safe_num(kurtosis)),
+    entropy  = unbox(safe_num(entropy)),
+    mode     = unbox(safe_num(mode))
+  )
+}
+
+# Point evaluations. `ccdf_fn` / `log_cdf_fn` are optional — only continuous
+# distributions expose `ccdf`, and a distribution that lacks either method
+# simply omits the field rather than emitting a value nothing reads.
+make_point_evals <- function(xs, pdf_fn, cdf_fn, log_pdf_fn, ccdf_fn = NULL, log_cdf_fn = NULL) {
+  lapply(xs, function(xi) {
+    out <- list(
+      x       = unbox(xi),
+      pdf     = unbox(safe_num(pdf_fn(xi))),
+      cdf     = unbox(safe_num(cdf_fn(xi))),
+      log_pdf = unbox(safe_num(log_pdf_fn(xi)))
+    )
+    if (!is.null(ccdf_fn))    out$ccdf    <- unbox(safe_num(ccdf_fn(xi)))
+    if (!is.null(log_cdf_fn)) out$log_cdf <- unbox(safe_num(log_cdf_fn(xi)))
+    out
+  })
+}
+
+make_quantiles <- function(probs, quantile_fn) {
+  lapply(probs, function(p) {
+    list(
+      p = unbox(p),
+      x = unbox(safe_num(quantile_fn(p)))
+    )
+  })
+}
+
+write_json <- function(data, path) {
+  json_str <- toJSON(data, pretty = TRUE, na = "null", digits = 17)
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  writeLines(paste0(json_str, "\n"), path, sep = "")
+  cat(sprintf("  Written: %s\n", path))
+}
+
+# ── Distributions ───────────────────────────────────────────────────────
+
+generate_uniform <- function(out_root) {
+  parameterizations <- list(
+    c(0.0, 1.0),
+    c(-10.0, 10.0),
+    c(0.001, 0.002),
+    c(-100.0, -50.0),
+    c(0.0, 1000.0)
+  )
+  quantile_probs <- c(0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(parameterizations, function(ab) {
+    a <- ab[1]; b <- ab[2]
+    width <- b - a
+
+    moments <- make_moments(
+      mean     = (a + b) / 2,
+      variance = width^2 / 12,
+      skewness = 0.0,
+      kurtosis = -6/5,
+      entropy  = log(width),
+      mode     = (a + b) / 2
+    )
+
+    points <- c(a - width, a - 0.001, a, a + width * 0.25,
+                a + width * 0.5, a + width * 0.75, b, b + 0.001, b + width)
+
+    pdf_fn     <- function(x) dunif(x, min = a, max = b)
+    cdf_fn     <- function(x) punif(x, min = a, max = b)
+    log_pdf_fn <- function(x) dunif(x, min = a, max = b, log = TRUE)
+    ccdf_fn    <- function(x) punif(x, min = a, max = b, lower.tail = FALSE)
+    log_cdf_fn <- function(x) punif(x, min = a, max = b, log.p = TRUE)
+    quant_fn   <- function(p) qunif(p, min = a, max = b)
+
+    log_pdf_below <- dunif(a - width, min = a, max = b, log = TRUE)
+    log_pdf_above <- dunif(b + width, min = a, max = b, log = TRUE)
+
+    list(
+      params     = list(a = unbox(a), b = unbox(b)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn, ccdf_fn, log_cdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(punif(-Inf, min = a, max = b)),
+        cdf_pos_inf           = unbox(punif(Inf,  min = a, max = b)),
+        log_pdf_below_support = unbox(safe_num(log_pdf_below)),
+        log_pdf_above_support = unbox(safe_num(log_pdf_above))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("Uniform"), cases = cases)
+  write_json(data, file.path(out_root, "continuous", "uniform", "test_reference.json"))
+}
+
+generate_discrete_uniform <- function(out_root) {
+  parameterizations <- list(
+    c(0L, 9L), c(1L, 6L), c(-5L, 5L), c(0L, 0L), c(0L, 100L), c(-100L, -50L)
+  )
+  # Skip p=0.0 for discrete: SciPy ppf(0) returns below-support by convention
+  quantile_probs <- c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(parameterizations, function(ab) {
+    a <- ab[1]; b <- ab[2]
+    n <- b - a + 1
+
+    # Closed-form moments for DiscreteUniform(a, b). Skew/kurtosis undefined
+    # when n=1 (variance = 0); mode is convention-dependent → lower bound.
+    skew_val <- if (n == 1) NA_real_ else 0.0
+    kurt_val <- if (n == 1) NA_real_ else -6 * (n^2 + 1) / (5 * (n^2 - 1))
+    moments <- make_moments(
+      mean     = (a + b) / 2,
+      variance = (n^2 - 1) / 12,
+      skewness = skew_val,
+      kurtosis = kurt_val,
+      entropy  = log(n),
+      mode     = a
+    )
+
+    support_points <- if (n <= 20) {
+      a:b
+    } else {
+      sort(unique(c(a, a + 1, a + n %/% 4, a + n %/% 2, a + 3 * n %/% 4, b - 1, b)))
+    }
+    points <- as.numeric(c(a - 2L, a - 1L, support_points, b + 1L, b + 2L))
+
+    in_support <- function(x) x >= a & x <= b & x == floor(x)
+    pdf_fn     <- function(x) ifelse(in_support(x), 1 / n, 0)
+    cdf_fn     <- function(x) {
+      if (x < a) 0 else if (x >= b) 1 else (floor(x) - a + 1) / n
+    }
+    log_pdf_fn <- function(x) ifelse(in_support(x), -log(n), -Inf)
+    ccdf_fn    <- function(x) 1 - cdf_fn(x)
+    # log_cdf = log(cdf); cdf == 0 below support → -Inf → null (skipped).
+    log_cdf_fn <- function(x) log(cdf_fn(x))
+    # Quantile: smallest k such that P(X <= k) >= p. The driver compares this to
+    # Rust's inverse_cdf with `assert_eq!` (exact integer), so the two ceilings
+    # must agree. This uses no fp tolerance while Rust's inverse_cdf subtracts a
+    # small one; they match for all probs/n here, but a new `quantile_probs`
+    # value where `p * n` lands just above an integer could split them.
+    quant_fn   <- function(p) {
+      if (p <= 0) a else if (p >= 1) b else a + ceiling(p * n) - 1
+    }
+
+    list(
+      params     = list(a = unbox(as.numeric(a)), b = unbox(as.numeric(b))),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn, ccdf_fn, log_cdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(0),
+        cdf_pos_inf           = unbox(1),
+        log_pdf_below_support = unbox(safe_num(log_pdf_fn(a - 1))),
+        log_pdf_above_support = unbox(safe_num(log_pdf_fn(b + 1)))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("DiscreteUniform"), cases = cases)
+  write_json(data, file.path(out_root, "discrete", "discrete_uniform", "test_reference.json"))
+}
+
+# ── Main ────────────────────────────────────────────────────────────────
+
+main <- function() {
+  cat("Generating reference data (R)...\n")
+  generate_uniform(UNIV_ROOT)
+  generate_discrete_uniform(UNIV_ROOT)
+  cat("Done.\n")
+}
+
+main()

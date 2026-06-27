@@ -162,6 +162,35 @@ impl<F: Float> HasMode for DiscreteUniform<F> {
     }
 }
 
+impl<F: Float> HasSkewness for DiscreteUniform<F> {
+    type Value = F;
+
+    fn skewness(&self) -> Option<F> {
+        // Undefined when the support is a single point (variance = 0).
+        if self.a == self.b {
+            None
+        } else {
+            Some(F::zero())
+        }
+    }
+}
+
+impl<F: Float> HasKurtosis for DiscreteUniform<F> {
+    type Value = F;
+
+    fn kurtosis(&self) -> Option<F> {
+        // Excess kurtosis -6(n²+1) / (5(n²-1)); undefined when n = 1.
+        if self.a == self.b {
+            return None;
+        }
+        let n = F::from(self.b - self.a + 1).unwrap();
+        let n2 = n * n;
+        let num = F::from(-6.0).unwrap() * (n2 + F::one());
+        let den = F::from(5.0).unwrap() * (n2 - F::one());
+        Some(num / den)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -135,6 +135,9 @@ pub trait UnivariateDiscrete<F: Float, K: DiscreteInt>: Distribution<F, Value = 
         Self: Sized;
 
     fn cdf(&self, x: K) -> F;
+    fn ccdf(&self, x: K) -> F {
+        F::one() - self.cdf(x)
+    }
     fn log_cdf(&self, x: K) -> F {
         self.cdf(x).ln()
     }

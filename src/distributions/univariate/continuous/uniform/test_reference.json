@@ -11,62 +11,81 @@
         "variance": 0.083333333333333329,
         "skewness": 0,
         "kurtosis": -1.2,
-        "entropy": 0
+        "entropy": 0,
+        "mode": 0.5
       },
       "pdf_cdf": [
         {
           "x": -1,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -0.001,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 0,
           "pdf": 1,
           "cdf": 0,
-          "log_pdf": -0
+          "log_pdf": -0,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 0.25,
           "pdf": 1,
           "cdf": 0.25,
-          "log_pdf": -0
+          "log_pdf": -0,
+          "ccdf": 0.75,
+          "log_cdf": -1.3862943611198906
         },
         {
           "x": 0.5,
           "pdf": 1,
           "cdf": 0.5,
-          "log_pdf": -0
+          "log_pdf": -0,
+          "ccdf": 0.5,
+          "log_cdf": -0.69314718055994529
         },
         {
           "x": 0.75,
           "pdf": 1,
           "cdf": 0.75,
-          "log_pdf": -0
+          "log_pdf": -0,
+          "ccdf": 0.25,
+          "log_cdf": -0.2876820724517809
         },
         {
           "x": 1,
           "pdf": 1,
           "cdf": 1,
-          "log_pdf": -0
+          "log_pdf": -0,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 1.0009999999999999,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 2,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         }
       ],
       "quantiles": [
@@ -125,62 +144,81 @@
         "variance": 33.333333333333336,
         "skewness": 0,
         "kurtosis": -1.2,
-        "entropy": 2.9957322735539909
+        "entropy": 2.9957322735539909,
+        "mode": 0
       },
       "pdf_cdf": [
         {
           "x": -30,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -10.000999999999999,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -10,
           "pdf": 0.050000000000000003,
           "cdf": 0,
-          "log_pdf": -2.9957322735539909
+          "log_pdf": -2.9957322735539909,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -5,
           "pdf": 0.050000000000000003,
           "cdf": 0.25,
-          "log_pdf": -2.9957322735539909
+          "log_pdf": -2.9957322735539909,
+          "ccdf": 0.75,
+          "log_cdf": -1.3862943611198906
         },
         {
           "x": 0,
           "pdf": 0.050000000000000003,
           "cdf": 0.5,
-          "log_pdf": -2.9957322735539909
+          "log_pdf": -2.9957322735539909,
+          "ccdf": 0.5,
+          "log_cdf": -0.69314718055994529
         },
         {
           "x": 5,
           "pdf": 0.050000000000000003,
           "cdf": 0.75,
-          "log_pdf": -2.9957322735539909
+          "log_pdf": -2.9957322735539909,
+          "ccdf": 0.25,
+          "log_cdf": -0.2876820724517809
         },
         {
           "x": 10,
           "pdf": 0.050000000000000003,
           "cdf": 1,
-          "log_pdf": -2.9957322735539909
+          "log_pdf": -2.9957322735539909,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 10.000999999999999,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 30,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         }
       ],
       "quantiles": [
@@ -239,62 +277,81 @@
         "variance": 8.3333333333333325e-08,
         "skewness": 0,
         "kurtosis": -1.2,
-        "entropy": -6.9077552789821368
+        "entropy": -6.9077552789821368,
+        "mode": 0.0015
       },
       "pdf_cdf": [
         {
           "x": 0,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 0,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 0.001,
           "pdf": 1000,
           "cdf": 0,
-          "log_pdf": 6.9077552789821368
+          "log_pdf": 6.9077552789821368,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 0.00125,
           "pdf": 1000,
           "cdf": 0.25,
-          "log_pdf": 6.9077552789821368
+          "log_pdf": 6.9077552789821368,
+          "ccdf": 0.75,
+          "log_cdf": -1.3862943611198906
         },
         {
           "x": 0.0015,
           "pdf": 1000,
           "cdf": 0.5,
-          "log_pdf": 6.9077552789821368
+          "log_pdf": 6.9077552789821368,
+          "ccdf": 0.5,
+          "log_cdf": -0.69314718055994529
         },
         {
           "x": 0.00175,
           "pdf": 1000,
           "cdf": 0.75,
-          "log_pdf": 6.9077552789821368
+          "log_pdf": 6.9077552789821368,
+          "ccdf": 0.25,
+          "log_cdf": -0.2876820724517809
         },
         {
           "x": 0.002,
           "pdf": 1000,
           "cdf": 1,
-          "log_pdf": 6.9077552789821368
+          "log_pdf": 6.9077552789821368,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 0.0030000000000000001,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 0.0030000000000000001,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         }
       ],
       "quantiles": [
@@ -353,62 +410,81 @@
         "variance": 208.33333333333334,
         "skewness": 0,
         "kurtosis": -1.2,
-        "entropy": 3.912023005428146
+        "entropy": 3.912023005428146,
+        "mode": -75
       },
       "pdf_cdf": [
         {
           "x": -150,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -100.001,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -100,
           "pdf": 0.02,
           "cdf": 0,
-          "log_pdf": -3.912023005428146
+          "log_pdf": -3.912023005428146,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -87.5,
           "pdf": 0.02,
           "cdf": 0.25,
-          "log_pdf": -3.912023005428146
+          "log_pdf": -3.912023005428146,
+          "ccdf": 0.75,
+          "log_cdf": -1.3862943611198906
         },
         {
           "x": -75,
           "pdf": 0.02,
           "cdf": 0.5,
-          "log_pdf": -3.912023005428146
+          "log_pdf": -3.912023005428146,
+          "ccdf": 0.5,
+          "log_cdf": -0.69314718055994529
         },
         {
           "x": -62.5,
           "pdf": 0.02,
           "cdf": 0.75,
-          "log_pdf": -3.912023005428146
+          "log_pdf": -3.912023005428146,
+          "ccdf": 0.25,
+          "log_cdf": -0.2876820724517809
         },
         {
           "x": -50,
           "pdf": 0.02,
           "cdf": 1,
-          "log_pdf": -3.912023005428146
+          "log_pdf": -3.912023005428146,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": -49.999000000000002,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 0,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         }
       ],
       "quantiles": [
@@ -467,62 +543,81 @@
         "variance": 83333.333333333328,
         "skewness": 0,
         "kurtosis": -1.2,
-        "entropy": 6.9077552789821368
+        "entropy": 6.9077552789821368,
+        "mode": 500
       },
       "pdf_cdf": [
         {
           "x": -1000,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": -0.001,
           "pdf": 0,
           "cdf": 0,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 0,
           "pdf": 0.001,
           "cdf": 0,
-          "log_pdf": -6.9077552789821368
+          "log_pdf": -6.9077552789821368,
+          "ccdf": 1,
+          "log_cdf": null
         },
         {
           "x": 250,
           "pdf": 0.001,
           "cdf": 0.25,
-          "log_pdf": -6.9077552789821368
+          "log_pdf": -6.9077552789821368,
+          "ccdf": 0.75,
+          "log_cdf": -1.3862943611198906
         },
         {
           "x": 500,
           "pdf": 0.001,
           "cdf": 0.5,
-          "log_pdf": -6.9077552789821368
+          "log_pdf": -6.9077552789821368,
+          "ccdf": 0.5,
+          "log_cdf": -0.69314718055994529
         },
         {
           "x": 750,
           "pdf": 0.001,
           "cdf": 0.75,
-          "log_pdf": -6.9077552789821368
+          "log_pdf": -6.9077552789821368,
+          "ccdf": 0.25,
+          "log_cdf": -0.2876820724517809
         },
         {
           "x": 1000,
           "pdf": 0.001,
           "cdf": 1,
-          "log_pdf": -6.9077552789821368
+          "log_pdf": -6.9077552789821368,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 1000.001,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         },
         {
           "x": 2000,
           "pdf": 0,
           "cdf": 1,
-          "log_pdf": null
+          "log_pdf": null,
+          "ccdf": 0,
+          "log_cdf": 0
         }
       ],
       "quantiles": [

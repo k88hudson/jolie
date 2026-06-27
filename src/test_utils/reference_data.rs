@@ -43,6 +43,8 @@ pub struct Moments {
     pub skewness: Option<f64>,
     pub kurtosis: Option<f64>,
     pub entropy: Option<f64>,
+    #[serde(default)]
+    pub mode: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,6 +53,10 @@ pub struct PdfCdfPoint {
     pub pdf: Option<f64>,
     pub cdf: Option<f64>,
     pub log_pdf: Option<f64>,
+    #[serde(default)]
+    pub ccdf: Option<f64>,
+    #[serde(default)]
+    pub log_cdf: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,7 +83,13 @@ pub fn load_reference(json_str: &str) -> ReferenceData {
 
 pub fn run_continuous_reference_tests<D, C>(make_dist: C, reference: &ReferenceData, tol: f64)
 where
-    D: UnivariateContinuous<f64> + HasMean<Value = f64> + HasVariance + HasEntropy<Value = f64>,
+    D: UnivariateContinuous<f64>
+        + HasMean<Value = f64>
+        + HasVariance
+        + HasEntropy<Value = f64>
+        + HasSkewness<Value = f64>
+        + HasKurtosis<Value = f64>
+        + HasMode<Value = f64>,
     C: Fn(f64, f64) -> D,
 {
     for case in &reference.cases {
@@ -91,8 +103,17 @@ where
         if let Some(expected) = m.variance {
             assert_close(dist.variance().unwrap(), expected, tol, "variance", case);
         }
+        if let Some(expected) = m.skewness {
+            assert_close(dist.skewness().unwrap(), expected, tol, "skewness", case);
+        }
+        if let Some(expected) = m.kurtosis {
+            assert_close(dist.kurtosis().unwrap(), expected, tol, "kurtosis", case);
+        }
         if let Some(expected) = m.entropy {
             assert_close(dist.entropy().unwrap(), expected, tol, "entropy", case);
+        }
+        if let Some(expected) = m.mode {
+            assert_close(dist.mode().unwrap(), expected, tol, "mode", case);
         }
 
         // PDF / CDF point evaluations
@@ -103,12 +124,24 @@ where
             if let Some(expected_cdf) = pt.cdf {
                 assert_close(dist.cdf(pt.x), expected_cdf, tol, &format!("cdf({})", pt.x), case);
             }
+            if let Some(expected_ccdf) = pt.ccdf {
+                assert_close(dist.ccdf(pt.x), expected_ccdf, tol, &format!("ccdf({})", pt.x), case);
+            }
             if let Some(expected_log_pdf) = pt.log_pdf {
                 assert_close(
                     dist.log_pdf(&pt.x),
                     expected_log_pdf,
                     tol,
                     &format!("log_pdf({})", pt.x),
+                    case,
+                );
+            }
+            if let Some(expected_log_cdf) = pt.log_cdf {
+                assert_close(
+                    dist.log_cdf(pt.x),
+                    expected_log_cdf,
+                    tol,
+                    &format!("log_cdf({})", pt.x),
                     case,
                 );
             }
@@ -131,7 +164,13 @@ where
 
 pub fn run_discrete_reference_tests<D, K, C>(make_dist: C, reference: &ReferenceData, tol: f64)
 where
-    D: UnivariateDiscrete<f64, K> + HasMean<Value = f64> + HasVariance + HasEntropy<Value = f64>,
+    D: UnivariateDiscrete<f64, K>
+        + HasMean<Value = f64>
+        + HasVariance
+        + HasEntropy<Value = f64>
+        + HasSkewness<Value = f64>
+        + HasKurtosis<Value = f64>
+        + HasMode<Value = K>,
     K: DiscreteInt,
     C: Fn(K, K) -> D,
 {
@@ -147,8 +186,26 @@ where
         if let Some(expected) = m.variance {
             assert_close(dist.variance().unwrap(), expected, tol, "variance", case);
         }
+        if let Some(expected) = m.skewness {
+            assert_close(dist.skewness().unwrap(), expected, tol, "skewness", case);
+        }
+        if let Some(expected) = m.kurtosis {
+            assert_close(dist.kurtosis().unwrap(), expected, tol, "kurtosis", case);
+        }
         if let Some(expected) = m.entropy {
             assert_close(dist.entropy().unwrap(), expected, tol, "entropy", case);
+        }
+        if let Some(expected) = m.mode {
+            let expected_k = K::from_f64(expected).unwrap();
+            assert_eq!(
+                dist.mode().unwrap(),
+                expected_k,
+                "mode for params a={}, b={}: got {}, expected {}",
+                case.params.a,
+                case.params.b,
+                dist.mode().unwrap(),
+                expected_k,
+            );
         }
 
         for pt in &case.pdf_cdf {
@@ -166,12 +223,24 @@ where
             if let Some(expected_cdf) = pt.cdf {
                 assert_close(dist.cdf(x), expected_cdf, tol, &format!("cdf({})", x), case);
             }
+            if let Some(expected_ccdf) = pt.ccdf {
+                assert_close(dist.ccdf(x), expected_ccdf, tol, &format!("ccdf({})", x), case);
+            }
             if let Some(expected_log_pdf) = pt.log_pdf {
                 assert_close(
                     dist.log_pdf(&x),
                     expected_log_pdf,
                     tol,
                     &format!("log_pmf({})", x),
+                    case,
+                );
+            }
+            if let Some(expected_log_cdf) = pt.log_cdf {
+                assert_close(
+                    dist.log_cdf(x),
+                    expected_log_cdf,
+                    tol,
+                    &format!("log_cdf({})", x),
                     case,
                 );
             }
