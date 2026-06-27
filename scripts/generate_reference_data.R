@@ -308,6 +308,72 @@ generate_normal <- function(out_root) {
   write_json(data, file.path(out_root, "continuous", "normal", "test_reference.json"))
 }
 
+generate_lognormal <- function(out_root) {
+  parameterizations <- list(
+    c(0.0, 1.0), c(1.0, 0.5), c(0.0, 2.0), c(3.0, 1.0), c(-1.0, 0.5), c(5.0, 0.1)
+  )
+  quantile_probs <- c(0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(parameterizations, function(ms) {
+    mu <- ms[1]; sigma <- ms[2]
+    s2 <- sigma^2
+    mean_val <- exp(mu + s2 / 2)
+    variance <- (exp(s2) - 1) * exp(2 * mu + s2)
+    std      <- sqrt(variance)
+    kurt     <- exp(4 * s2) + 2 * exp(3 * s2) + 3 * exp(2 * s2) - 6   # excess
+    # Kurtosis grows as exp(4σ²); skip the reference check when it exceeds what
+    # an absolute 1e-10 comparison can resolve (covered by a relative-tol test).
+    kurt_ref <- if (kurt < 1e5) kurt else NA_real_
+    moments <- make_moments(
+      mean     = mean_val,
+      variance = variance,
+      skewness = (exp(s2) + 2) * sqrt(exp(s2) - 1),
+      kurtosis = kurt_ref,
+      entropy  = mu + log(sigma) + 0.5 * log(2 * pi) + 0.5,
+      mode     = exp(mu - s2)
+    )
+
+    median_val <- exp(mu)
+    points <- sort(unique(c(
+      max(0.01, median_val * 0.01),
+      max(0.01, median_val * 0.1),
+      median_val * 0.5,
+      median_val,
+      median_val * 2.0,
+      median_val * 5.0,
+      mean_val + std,
+      mean_val + 2 * std
+    )))
+
+    pdf_fn     <- function(x) dlnorm(x, meanlog = mu, sdlog = sigma)
+    cdf_fn     <- function(x) plnorm(x, meanlog = mu, sdlog = sigma)
+    log_pdf_fn <- function(x) dlnorm(x, meanlog = mu, sdlog = sigma, log = TRUE)
+    quant_fn   <- function(p) qlnorm(p, meanlog = mu, sdlog = sigma)
+
+    log_pdf_below <- dlnorm(qlnorm(0, meanlog = mu, sdlog = sigma) - 1,
+                            meanlog = mu, sdlog = sigma, log = TRUE)
+    log_pdf_above <- dlnorm(qlnorm(1, meanlog = mu, sdlog = sigma) + 1,
+                            meanlog = mu, sdlog = sigma, log = TRUE)
+
+    list(
+      params     = list(a = unbox(mu), b = unbox(sigma)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(plnorm(-Inf, meanlog = mu, sdlog = sigma)),
+        cdf_pos_inf           = unbox(plnorm(Inf,  meanlog = mu, sdlog = sigma)),
+        log_pdf_below_support = unbox(safe_num(log_pdf_below)),
+        log_pdf_above_support = unbox(safe_num(log_pdf_above))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("LogNormal"), cases = cases)
+  write_json(data, file.path(out_root, "continuous", "lognormal", "test_reference.json"))
+}
+
 # ── Main ────────────────────────────────────────────────────────────────
 
 main <- function() {
@@ -315,6 +381,7 @@ main <- function() {
   generate_uniform(UNIV_ROOT)
   generate_exponential(UNIV_ROOT)
   generate_normal(UNIV_ROOT)
+  generate_lognormal(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
   cat("Done.\n")
 }

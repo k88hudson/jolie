@@ -43,6 +43,11 @@ harness = false
 path = "src/distributions/univariate/continuous/normal/bench.rs"
 
 [[bench]]
+name = "lognormal"
+harness = false
+path = "src/distributions/univariate/continuous/lognormal/bench.rs"
+
+[[bench]]
 name = "discrete_uniform"
 harness = false
 path = "src/distributions/univariate/discrete/discrete_uniform/bench.rs"
