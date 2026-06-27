@@ -5,7 +5,7 @@ use rand::Rng;
 
 use crate::error::DistributionError;
 
-/// Implement `rand::distr::Distribution` for a julie distribution type,
+/// Implement `rand::distr::Distribution` for a jolie distribution type,
 /// delegating to [`Sampleable::sample`].
 macro_rules! impl_rand_distribution {
     ($dist:ident<F: Float> => $value:ty) => {

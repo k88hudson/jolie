@@ -14,9 +14,9 @@ run = "cargo fmt"
 [tasks.fmt-check]
 run = "cargo fmt --check"
 
-# Lint with clippy across all targets
+# Lint with clippy across all targets; any warning fails
 [tasks.lint]
-run = "cargo clippy --all-targets"
+run = "cargo clippy --all-targets -- -D warnings"
 
 # Regenerate the R-computed reference data (needs R + jsonlite)
 [tasks.gen-reference]

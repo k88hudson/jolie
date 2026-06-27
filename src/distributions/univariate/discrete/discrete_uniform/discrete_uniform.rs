@@ -324,7 +324,7 @@ mod tests {
         let d = DiscreteUniform::<f64>::new(0, 100).unwrap();
         for _ in 0..10_000 {
             let v = d.sample(&mut rng);
-            assert!(v >= 0 && v <= 100, "sample {v} out of range [0, 100]");
+            assert!((0..=100).contains(&v), "sample {v} out of range [0, 100]");
         }
     }
 
@@ -359,7 +359,7 @@ mod tests {
         let mut buf = [0i64; 100];
         d.sample_fill(&mut rng, &mut buf);
         for &v in &buf {
-            assert!(v >= 0 && v <= 10);
+            assert!((0..=10).contains(&v));
         }
     }
 

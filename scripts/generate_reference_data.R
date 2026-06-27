@@ -4,14 +4,7 @@
 # Requires: jsonlite
 #
 # Ground truth: R's d/p/q for built-in distributions, closed-form moments
-# computed analytically in this script. Ported from julie's generator,
-# trimmed to the distributions jolie has implemented and extended to cover
-# every numeric trait method jolie tests against reference data:
-#   - point evals add `ccdf` (R lower.tail=FALSE) and `log_cdf` (R log.p=TRUE)
-#   - moments add `mode`
-# `mode` has no R d/p/q equivalent and is convention-dependent for the uniform
-# families (the density is flat), so it is the analytic value jolie's impl
-# returns: the midpoint for Uniform, the lower bound for DiscreteUniform.
+# computed analytically in this script.
 # Caveats:
 #   - digits = 17 in toJSON over-specifies but guarantees f64 round-trip.
 

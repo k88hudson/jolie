@@ -310,7 +310,7 @@ mod tests {
         let d = Uniform::<f64>::new(2.0, 5.0).unwrap();
         for _ in 0..10_000 {
             let v = d.sample(&mut rng);
-            assert!(v >= 2.0 && v <= 5.0, "sample {v} out of range [2, 5]");
+            assert!((2.0..=5.0).contains(&v), "sample {v} out of range [2, 5]");
         }
     }
 
@@ -320,7 +320,7 @@ mod tests {
         let d = Uniform::<f32>::new(-1.0, 1.0).unwrap();
         for _ in 0..10_000 {
             let v = d.sample(&mut rng);
-            assert!(v >= -1.0 && v <= 1.0, "sample {v} out of range [-1, 1]");
+            assert!((-1.0..=1.0).contains(&v), "sample {v} out of range [-1, 1]");
         }
     }
 
@@ -331,7 +331,7 @@ mod tests {
         let mut buf = [0.0f64; 100];
         d.sample_fill(&mut rng, &mut buf);
         for &v in &buf {
-            assert!(v >= 0.0 && v <= 1.0);
+            assert!((0.0..=1.0).contains(&v));
         }
     }
 
