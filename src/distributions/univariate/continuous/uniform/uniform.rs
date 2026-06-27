@@ -72,6 +72,15 @@ impl<F: Float> Distribution<F> for Uniform<F> {
             F::neg_infinity()
         }
     }
+
+    // Closed form avoids the default `log_pdf().exp()` round-trip.
+    fn pdf(&self, x: &F) -> F {
+        if *x >= self.a && *x <= self.b {
+            F::one() / (self.b - self.a)
+        } else {
+            F::zero()
+        }
+    }
 }
 
 impl<F: Float> UnivariateContinuous<F> for Uniform<F> {

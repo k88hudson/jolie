@@ -79,6 +79,17 @@ impl<F: Float> Distribution<F> for DiscreteUniform<F> {
             -n.ln()
         }
     }
+
+    // Closed form avoids the default `log_pdf().exp()` round-trip.
+    fn pdf(&self, x: &i64) -> F {
+        let k = *x;
+        if k < self.a || k > self.b {
+            F::zero()
+        } else {
+            let n = F::from(self.b - self.a + 1).unwrap();
+            F::one() / n
+        }
+    }
 }
 
 impl<F: Float> UnivariateDiscrete<F, i64> for DiscreteUniform<F> {
