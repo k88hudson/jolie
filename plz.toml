@@ -22,6 +22,7 @@ run = "cargo clippy --all-targets"
 [tasks.gen-reference]
 run = "Rscript scripts/generate_reference_data.R"
 
-# Format, lint, and test in one shot
+# Format, lint, and test in one shot; runs as the pre-commit gate
 [tasks.ci]
 run_serial = ["plz:fmt-check", "plz:lint", "plz:test"]
+git_hook = "pre-commit"
