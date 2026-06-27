@@ -76,6 +76,13 @@ write_json <- function(data, path) {
   cat(sprintf("  Written: %s\n", path))
 }
 
+discrete_entropy <- function(pmf_fn, lo, hi) {
+  ks <- seq(lo, hi)
+  ps <- vapply(ks, pmf_fn, numeric(1))
+  ps <- ps[ps > 0 & is.finite(ps)]
+  -sum(ps * log(ps))
+}
+
 # ── Distributions ───────────────────────────────────────────────────────
 
 generate_uniform <- function(out_root) {
@@ -428,6 +435,61 @@ generate_gamma <- function(out_root) {
   write_json(data, file.path(out_root, "continuous", "gamma", "test_reference.json"))
 }
 
+generate_poisson <- function(out_root) {
+  lambdas <- c(1.0, 0.1, 5.0, 10.0, 50.0, 100.0)
+  quantile_probs <- c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(lambdas, function(lam) {
+    mean_val <- lam
+    variance <- lam
+    std      <- sqrt(lam)
+    entropy_upper <- max(50L, as.integer(lam + 20 * sqrt(lam)))
+    entropy  <- discrete_entropy(function(k) dpois(k, lambda = lam), 0L, entropy_upper)
+    moments <- make_moments(
+      mean     = mean_val,
+      variance = variance,
+      skewness = 1 / sqrt(lam),
+      kurtosis = 1 / lam,                                 # excess
+      entropy  = entropy
+    )
+
+    hi <- max(as.integer(mean_val + 4 * std), 10L)
+    support_points <- sort(unique(c(
+      0L, 1L,
+      max(0L, as.integer(mean_val - 2 * std)),
+      max(0L, as.integer(mean_val - std)),
+      as.integer(mean_val),
+      as.integer(mean_val + std),
+      as.integer(mean_val + 2 * std),
+      as.integer(mean_val + 3 * std),
+      hi
+    )))
+    points <- as.numeric(c(-1L, support_points))
+
+    pdf_fn     <- function(x) dpois(x, lambda = lam)
+    cdf_fn     <- function(x) ppois(x, lambda = lam)
+    log_pdf_fn <- function(x) dpois(x, lambda = lam, log = TRUE)
+    quant_fn   <- function(p) qpois(p, lambda = lam)
+
+    list(
+      params     = list(a = unbox(lam)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(0),
+        cdf_pos_inf           = unbox(1),
+        log_pdf_below_support = unbox(safe_num(dpois(-1L, lambda = lam, log = TRUE))),
+        log_pdf_above_support = unbox(safe_num(dpois(hi + 1L, lambda = lam, log = TRUE)))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("Poisson"), cases = cases)
+  write_json(data, file.path(out_root, "discrete", "poisson", "test_reference.json"))
+}
+
 # ── Main ────────────────────────────────────────────────────────────────
 
 main <- function() {
@@ -438,6 +500,7 @@ main <- function() {
   generate_lognormal(UNIV_ROOT)
   generate_gamma(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
+  generate_poisson(UNIV_ROOT)
   cat("Done.\n")
 }
 

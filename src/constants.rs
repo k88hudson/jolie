@@ -6,6 +6,9 @@ pub(crate) const LN_2PI: f64 = 1.8378770664093453;
 /// ln(2πe)
 pub(crate) const LN_2PI_E: f64 = 2.8378770664093453;
 
+/// 0.5 × ln(2π), the leading constant in Stirling's approximation
+pub(crate) const HALF_LN_2PI: f64 = 0.9189385332046727;
+
 /// √(2π)
 pub(crate) const SQRT_2PI: f64 = 2.5066282746310002;
 

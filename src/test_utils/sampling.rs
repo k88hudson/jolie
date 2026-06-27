@@ -89,3 +89,68 @@ pub fn assert_discrete_sampling_binomial_ci<D, F, K>(
         );
     }
 }
+
+/// Pearson chi-square goodness-of-fit for a discrete sampler, lumping bins where
+/// expected count < 5 (standard practice). Returns the survival p-value
+/// `P(χ²_df > observed)` so the caller can apply its own threshold. More
+/// sensitive than per-bin binomial CIs at large N: tail-localized biases that
+/// fit inside individual bin CIs still inflate the summed χ².
+pub fn chi_square_pmf_pvalue<D, F, K>(
+    dist: &D,
+    rng: &mut impl Rng,
+    n_samples: usize,
+    support: (K, K),
+) -> f64
+where
+    D: Distribution<F> + Sampleable<Value = K>,
+    F: Float + Into<f64>,
+    K: DiscreteInt,
+{
+    use crate::special::gamma::regularized_gamma_inc;
+
+    let (a, b) = support;
+    let range = K::range_size(a, b);
+    let mut counts = vec![0usize; range];
+    let mut overflow = 0usize;
+    for _ in 0..n_samples {
+        let x = dist.sample(rng);
+        if x >= a && x <= b {
+            counts[(x - a).to_usize_saturating()] += 1;
+        } else {
+            overflow += 1;
+        }
+    }
+
+    let n = n_samples as f64;
+    let mut chi2 = 0.0_f64;
+    let mut df = 0usize;
+    let mut cur_obs = 0.0_f64;
+    let mut cur_exp = 0.0_f64;
+    for (i, &count) in counts.iter().enumerate() {
+        let x = a + K::from_usize(i).unwrap();
+        let p: f64 = dist.pdf(&x).into();
+        cur_obs += count as f64;
+        cur_exp += n * p;
+        if cur_exp >= 5.0 {
+            let d = cur_obs - cur_exp;
+            chi2 += d * d / cur_exp;
+            df += 1;
+            cur_obs = 0.0;
+            cur_exp = 0.0;
+        }
+    }
+    // Lump trailing partial bin and any out-of-support overflow into the last bin.
+    cur_obs += overflow as f64;
+    if cur_exp > 0.0 || cur_obs > 0.0 {
+        let d = cur_obs - cur_exp;
+        if cur_exp > 0.0 {
+            chi2 += d * d / cur_exp;
+        }
+        df += 1;
+    }
+    let df = df.saturating_sub(1);
+    assert!(df > 0, "chi_square_pmf_pvalue: not enough bins for df > 0");
+
+    // p-value = P(χ²_df > chi2) = Q(df/2, chi2/2) (upper regularized gamma)
+    regularized_gamma_inc(df as f64 / 2.0, chi2 / 2.0)
+}

@@ -56,3 +56,8 @@ path = "src/distributions/univariate/continuous/gamma/bench.rs"
 name = "discrete_uniform"
 harness = false
 path = "src/distributions/univariate/discrete/discrete_uniform/bench.rs"
+
+[[bench]]
+name = "poisson"
+harness = false
+path = "src/distributions/univariate/discrete/poisson/bench.rs"

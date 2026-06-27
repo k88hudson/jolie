@@ -11,3 +11,4 @@ pub use univariate::continuous::lognormal::{LogNormal, LogNormalParams};
 pub use univariate::continuous::normal::{Normal, NormalParams};
 pub use univariate::continuous::uniform::{Uniform, UniformParams};
 pub use univariate::discrete::discrete_uniform::{DiscreteUniform, DiscreteUniformParams};
+pub use univariate::discrete::poisson::{Poisson, PoissonParams};
