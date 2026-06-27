@@ -22,6 +22,10 @@ run = "cargo clippy --all-targets -- -D warnings"
 [tasks.bench]
 run = "cargo bench"
 
+# Run the benchmarks and print a % comparison table (jolie vs rand_distr/statrs)
+[tasks.bench-table]
+run = "uv run scripts/bench-table.py"
+
 # Regenerate the R-computed reference data (needs R + jsonlite)
 [tasks.gen-reference]
 run = "Rscript scripts/generate_reference_data.R"

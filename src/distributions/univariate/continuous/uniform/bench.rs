@@ -3,6 +3,7 @@
 //! Methods with no equivalent (`log_cdf`, `kurtosis`) are benched on their own.
 
 use std::hint::black_box;
+use std::time::Duration;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 
@@ -132,5 +133,13 @@ fn moments(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, sample, density, cumulative, moments);
+criterion_group! {
+    name = benches;
+    // These are sub-nanosecond ops; short windows still give stable estimates.
+    config = Criterion::default()
+        .warm_up_time(Duration::from_millis(200))
+        .measurement_time(Duration::from_millis(500))
+        .sample_size(50);
+    targets = sample, density, cumulative, moments
+}
 criterion_main!(benches);
