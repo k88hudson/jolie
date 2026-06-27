@@ -18,6 +18,10 @@ run = "cargo fmt --check"
 [tasks.lint]
 run = "cargo clippy --all-targets -- -D warnings"
 
+# Run all criterion benchmarks (jolie vs rand_distr / statrs)
+[tasks.bench]
+run = "cargo bench"
+
 # Regenerate the R-computed reference data (needs R + jsonlite)
 [tasks.gen-reference]
 run = "Rscript scripts/generate_reference_data.R"
