@@ -12,7 +12,9 @@ use rand::Rng;
 use crate::distributions::traits::*;
 use crate::error::DistributionError;
 
-use super::{DiscreteUniform, DiscreteUniformParams, Uniform, UniformParams};
+use super::{
+    DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Uniform, UniformParams,
+};
 
 // ============================== Continuous ==============================
 
@@ -20,6 +22,7 @@ use super::{DiscreteUniform, DiscreteUniformParams, Uniform, UniformParams};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AnyContinuous<F: Float> {
     Uniform(Uniform<F>),
+    Exponential(Exponential<F>),
 }
 
 /// Serializable parameters for [`AnyContinuous`], internally tagged by `"type"`.
@@ -28,6 +31,7 @@ pub enum AnyContinuous<F: Float> {
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum AnyContinuousParams<F> {
     Uniform(UniformParams<F>),
+    Exponential(ExponentialParams<F>),
 }
 
 impl<F: Float> Sampleable for AnyContinuous<F> {
@@ -37,6 +41,7 @@ impl<F: Float> Sampleable for AnyContinuous<F> {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> F {
         match self {
             Self::Uniform(d) => d.sample(rng),
+            Self::Exponential(d) => d.sample(rng),
         }
     }
 }
@@ -45,12 +50,14 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
     fn log_pdf(&self, x: &F) -> F {
         match self {
             Self::Uniform(d) => d.log_pdf(x),
+            Self::Exponential(d) => d.log_pdf(x),
         }
     }
 
     fn pdf(&self, x: &F) -> F {
         match self {
             Self::Uniform(d) => d.pdf(x),
+            Self::Exponential(d) => d.pdf(x),
         }
     }
 }
@@ -61,30 +68,42 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
     fn cdf(&self, x: F) -> F {
         match self {
             Self::Uniform(d) => d.cdf(x),
+            Self::Exponential(d) => d.cdf(x),
         }
     }
 
     fn inverse_cdf(&self, p: F) -> F {
         match self {
             Self::Uniform(d) => d.inverse_cdf(p),
+            Self::Exponential(d) => d.inverse_cdf(p),
+        }
+    }
+
+    fn ccdf(&self, x: F) -> F {
+        match self {
+            Self::Uniform(d) => d.ccdf(x),
+            Self::Exponential(d) => d.ccdf(x),
         }
     }
 
     fn support(&self) -> (F, F) {
         match self {
             Self::Uniform(d) => d.support(),
+            Self::Exponential(d) => d.support(),
         }
     }
 
     fn params(&self) -> AnyContinuousParams<F> {
         match self {
             Self::Uniform(d) => AnyContinuousParams::Uniform(d.params()),
+            Self::Exponential(d) => AnyContinuousParams::Exponential(d.params()),
         }
     }
 
     fn from_params(params: AnyContinuousParams<F>) -> Result<Self, DistributionError> {
         Ok(match params {
             AnyContinuousParams::Uniform(p) => Self::Uniform(Uniform::from_params(p)?),
+            AnyContinuousParams::Exponential(p) => Self::Exponential(Exponential::from_params(p)?),
         })
     }
 }
@@ -92,6 +111,12 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
 impl<F: Float> From<Uniform<F>> for AnyContinuous<F> {
     fn from(d: Uniform<F>) -> Self {
         Self::Uniform(d)
+    }
+}
+
+impl<F: Float> From<Exponential<F>> for AnyContinuous<F> {
+    fn from(d: Exponential<F>) -> Self {
+        Self::Exponential(d)
     }
 }
 
@@ -234,6 +259,24 @@ mod tests {
     }
 
     #[test]
+    fn continuous_exponential_from_params_and_delegation() {
+        let p = AnyContinuousParams::Exponential(ExponentialParams::Scale { scale: 2.0 });
+        let d = AnyContinuous::<f64>::from_params(p).unwrap();
+        assert_eq!(d.support(), (0.0, f64::INFINITY));
+        assert!((d.pdf(&0.0) - 0.5).abs() < 1e-12);
+        assert!((d.cdf(2.0) - (1.0 - (-1.0_f64).exp())).abs() < 1e-12);
+        assert!((d.ccdf(2.0) - (-1.0_f64).exp()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn continuous_exponential_from_rate_params() {
+        let p = AnyContinuousParams::Exponential(ExponentialParams::Rate { rate: 4.0 });
+        let d = AnyContinuous::<f64>::from_params(p).unwrap();
+        // rate 4 → scale 0.25 → pdf(0) = rate = 4
+        assert!((d.pdf(&0.0) - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
     fn discrete_from_params_and_delegation() {
         let p = AnyDiscreteParams::DiscreteUniform(DiscreteUniformParams { a: 0, b: 9 });
         let d = AnyDiscrete::<f64>::from_params(p).unwrap();
@@ -250,6 +293,28 @@ mod tests {
         assert_eq!(s, r#"{"type":"Uniform","a":0.0,"b":1.0}"#);
         let d2 = AnyContinuous::<f64>::from_json_str(&s).unwrap();
         assert_eq!(d, d2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn continuous_exponential_json_round_trip() {
+        let d = AnyContinuous::from(Exponential::<f64>::from_scale(2.0).unwrap());
+        let s = d.to_json_string();
+        assert_eq!(s, r#"{"type":"Exponential","scale":2.0}"#);
+        let d2 = AnyContinuous::<f64>::from_json_str(&s).unwrap();
+        assert_eq!(d, d2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn continuous_exponential_json_from_rate() {
+        let json = r#"{"type":"Exponential","rate":0.5}"#;
+        let d = AnyContinuous::<f64>::from_json_str(json).unwrap();
+        // rate 0.5 → scale 2.0
+        match d {
+            AnyContinuous::Exponential(e) => assert!((e.scale() - 2.0).abs() < 1e-12),
+            _ => panic!("expected Exponential"),
+        }
     }
 
     #[cfg(feature = "serde")]

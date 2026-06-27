@@ -201,11 +201,70 @@ generate_discrete_uniform <- function(out_root) {
   write_json(data, file.path(out_root, "discrete", "discrete_uniform", "test_reference.json"))
 }
 
+generate_exponential <- function(out_root) {
+  scales <- c(1.0, 0.5, 2.0, 0.01, 100.0, 10.0)
+  quantile_probs <- c(0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(scales, function(scale) {
+    rate <- 1.0 / scale
+
+    # Analytic closed-form moments for Exp(scale = θ); mode is always 0.
+    mean_val <- scale
+    std      <- scale
+    moments <- make_moments(
+      mean     = scale,
+      variance = scale^2,
+      skewness = 2.0,
+      kurtosis = 6.0,               # excess
+      entropy  = 1.0 + log(scale),
+      mode     = 0.0
+    )
+
+    points <- sort(unique(c(
+      0.0,
+      max(0.01, mean_val * 0.1),
+      mean_val * 0.5,
+      mean_val,
+      mean_val + std,
+      mean_val + 2 * std,
+      mean_val + 3 * std
+    )))
+
+    pdf_fn     <- function(x) dexp(x, rate = rate)
+    cdf_fn     <- function(x) pexp(x, rate = rate)
+    log_pdf_fn <- function(x) dexp(x, rate = rate, log = TRUE)
+    ccdf_fn    <- function(x) pexp(x, rate = rate, lower.tail = FALSE)
+    log_cdf_fn <- function(x) pexp(x, rate = rate, log.p = TRUE)
+    quant_fn   <- function(p) qexp(p, rate = rate)
+
+    log_pdf_below <- dexp(qexp(0, rate = rate) - 1, rate = rate, log = TRUE)
+    log_pdf_above <- dexp(qexp(1, rate = rate) + 1, rate = rate, log = TRUE)
+
+    list(
+      params     = list(a = unbox(scale), b = unbox(0.0)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn, ccdf_fn, log_cdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(pexp(-Inf, rate = rate)),
+        cdf_pos_inf           = unbox(pexp(Inf,  rate = rate)),
+        log_pdf_below_support = unbox(safe_num(log_pdf_below)),
+        log_pdf_above_support = unbox(safe_num(log_pdf_above))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("Exponential"), cases = cases)
+  write_json(data, file.path(out_root, "continuous", "exponential", "test_reference.json"))
+}
+
 # ── Main ────────────────────────────────────────────────────────────────
 
 main <- function() {
   cat("Generating reference data (R)...\n")
   generate_uniform(UNIV_ROOT)
+  generate_exponential(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
   cat("Done.\n")
 }

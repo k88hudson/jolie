@@ -4,6 +4,7 @@
 
 pub mod distributions;
 pub mod error;
+pub(crate) mod special;
 pub mod unchecked;
 
 #[cfg(test)]

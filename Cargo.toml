@@ -32,6 +32,11 @@ harness = false
 path = "src/distributions/univariate/continuous/uniform/bench.rs"
 
 [[bench]]
+name = "exponential"
+harness = false
+path = "src/distributions/univariate/continuous/exponential/bench.rs"
+
+[[bench]]
 name = "discrete_uniform"
 harness = false
 path = "src/distributions/univariate/discrete/discrete_uniform/bench.rs"
