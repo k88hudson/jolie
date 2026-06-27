@@ -58,13 +58,26 @@ fn density(c: &mut Criterion) {
     let jd = jolie_dist();
     let sd = statrs_dist();
 
+    // jolie's pmf/log_pmf take `&K`. black_box the *value* then pass its
+    // reference (models a real call site); `black_box(&X)` would instead make
+    // the pointer opaque and force a spurious load that dwarfs the op itself.
     let mut g = c.benchmark_group("discrete_uniform/pmf");
-    g.bench_function("jolie", |b| b.iter(|| black_box(jd.pdf(black_box(&X)))));
+    g.bench_function("jolie", |b| {
+        b.iter(|| {
+            let x = black_box(X);
+            black_box(jd.pdf(&x))
+        })
+    });
     g.bench_function("statrs", |b| b.iter(|| black_box(sd.pmf(black_box(X)))));
     g.finish();
 
     let mut g = c.benchmark_group("discrete_uniform/log_pmf");
-    g.bench_function("jolie", |b| b.iter(|| black_box(jd.log_pdf(black_box(&X)))));
+    g.bench_function("jolie", |b| {
+        b.iter(|| {
+            let x = black_box(X);
+            black_box(jd.log_pdf(&x))
+        })
+    });
     g.bench_function("statrs", |b| b.iter(|| black_box(sd.ln_pmf(black_box(X)))));
     g.finish();
 }
