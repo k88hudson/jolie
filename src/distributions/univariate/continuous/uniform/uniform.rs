@@ -100,6 +100,17 @@ impl<F: Float> UnivariateContinuous<F> for Uniform<F> {
         self.a + p * (self.b - self.a)
     }
 
+    // Direct form avoids the cdf branch + subtract of the default `1 - cdf(x)`.
+    fn ccdf(&self, x: F) -> F {
+        if x < self.a {
+            F::one()
+        } else if x > self.b {
+            F::zero()
+        } else {
+            (self.b - x) / (self.b - self.a)
+        }
+    }
+
     fn support(&self) -> (F, F) {
         (self.a, self.b)
     }

@@ -144,19 +144,20 @@ crate::distributions::traits::impl_rand_distribution!(Exponential<F: Float> => F
 impl<F: Float> Distribution<F> for Exponential<F> {
     #[inline]
     fn log_pdf(&self, x: &F) -> F {
-        if *x < F::zero() || !x.is_finite() {
+        if *x < F::zero() {
             return F::neg_infinity();
         }
-        // ln(λ) - λx = -ln(θ) - x/θ
+        // ln(λ) - λx = -ln(θ) - x/θ. x = +inf yields -inf via IEEE arithmetic,
+        // so no explicit is_finite guard is needed.
         self.inv_scale.ln() - self.inv_scale * *x
     }
 
     #[inline]
     fn pdf(&self, x: &F) -> F {
-        if *x < F::zero() || !x.is_finite() {
+        if *x < F::zero() {
             return F::zero();
         }
-        // λ · exp(-λx)
+        // λ · exp(-λx). x = +inf yields exp(-inf) = 0 via IEEE arithmetic.
         self.inv_scale * (-*x * self.inv_scale).exp()
     }
 }
@@ -417,6 +418,15 @@ mod tests {
     fn non_finite_edge_cases() {
         let d = Exponential::<f64>::from_scale(1.0).unwrap();
         assert_continuous_edge_cases(&d);
+    }
+
+    // pdf/log_pdf drop the explicit is_finite guard and rely on IEEE limits at
+    // +inf; pin those so the optimization can't silently regress.
+    #[test]
+    fn density_at_positive_infinity() {
+        let d = Exponential::<f64>::from_scale(2.0).unwrap();
+        assert_eq!(d.pdf(&f64::INFINITY), 0.0);
+        assert_eq!(d.log_pdf(&f64::INFINITY), f64::NEG_INFINITY);
     }
 
     // --- Sampling: range and fill ---
