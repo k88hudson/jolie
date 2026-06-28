@@ -4,7 +4,7 @@ use rand::{Rng, RngExt};
 use crate::constants::SQRT_2PI;
 use crate::distributions::traits::*;
 use crate::error::DistributionError;
-use crate::special::gamma::{ln_factorial, regularized_gamma_inc};
+use crate::special::gamma::{ln_factorial, regularized_gamma_compl, regularized_gamma_inc};
 use crate::special::sampling::standard_normal;
 use crate::unchecked::Unchecked;
 
@@ -283,8 +283,18 @@ impl<F: Float> UnivariateDiscrete<F, u64> for Poisson<F> {
         if self.lambda == F::zero() {
             return F::one(); // P(X <= k) = 1 for all k >= 0
         }
-        // CDF = Q(k+1, λ) = 1 - P(k+1, λ) where P is the lower regularized gamma
-        F::one() - regularized_gamma_inc(F::from(x + 1).unwrap(), self.lambda)
+        // P(X <= k) = Q(k+1, λ), the upper regularized gamma. Computed directly
+        // (not 1 - P) so the lower tail stays accurate instead of collapsing to 0.
+        regularized_gamma_compl(F::from(x + 1).unwrap(), self.lambda)
+    }
+
+    // P(X > k) = P(k+1, λ), the lower regularized gamma. Direct form keeps the
+    // upper tail accurate where the default 1 - cdf would cancel to 0.
+    fn ccdf(&self, x: u64) -> F {
+        if self.lambda == F::zero() {
+            return F::zero();
+        }
+        regularized_gamma_inc(F::from(x + 1).unwrap(), self.lambda)
     }
 
     fn inverse_cdf(&self, q: F) -> u64 {
@@ -770,5 +780,29 @@ mod tests {
         let d = Poisson::<f64>::new(3.0).unwrap();
         let d2 = Poisson::from_params(d.params()).unwrap();
         assert_eq!(d.lambda(), d2.lambda());
+    }
+
+    // cdf (lower tail) and ccdf (upper tail) compute Q/P directly so the deep
+    // tails stay accurate rather than collapsing to 0 via a 1 - P cancellation.
+    #[test]
+    fn deep_tail_accurate() {
+        // P(X <= 0) = e^{-λ} exactly.
+        let d = Poisson::<f64>::new(100.0).unwrap();
+        let exact = (-100.0_f64).exp();
+        assert!(
+            (d.cdf(0) - exact).abs() / exact < 1e-10,
+            "cdf(0)={}",
+            d.cdf(0)
+        );
+        assert!(
+            (d.log_cdf(0) - (-100.0)).abs() < 1e-9,
+            "log_cdf(0)={}",
+            d.log_cdf(0)
+        );
+
+        // Upper-tail survival must not underflow to 0.
+        let d = Poisson::<f64>::new(5.0).unwrap();
+        assert!(d.ccdf(40) > 0.0, "ccdf(40) underflowed");
+        assert!(d.ccdf(60) > 0.0, "ccdf(60) underflowed");
     }
 }
