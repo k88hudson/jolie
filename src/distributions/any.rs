@@ -14,8 +14,8 @@ use crate::error::DistributionError;
 
 use super::{
     DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Gamma, GammaParams,
-    LogNormal, LogNormalParams, Normal, NormalParams, Poisson, PoissonParams, Uniform,
-    UniformParams,
+    LogNormal, LogNormalParams, NegativeBinomial, NegativeBinomialParams, Normal, NormalParams,
+    Poisson, PoissonParams, Uniform, UniformParams,
 };
 
 // ============================== Continuous ==============================
@@ -202,6 +202,7 @@ impl<F: Float + serde::Serialize> AnyContinuous<F> {
 pub enum AnyDiscrete<F: Float> {
     DiscreteUniform(DiscreteUniform<F>),
     Poisson(Poisson<F>),
+    NegativeBinomial(NegativeBinomial<F>),
 }
 
 /// Serializable parameters for [`AnyDiscrete`], internally tagged by `"type"`.
@@ -211,6 +212,7 @@ pub enum AnyDiscrete<F: Float> {
 pub enum AnyDiscreteParams<F> {
     DiscreteUniform(DiscreteUniformParams),
     Poisson(PoissonParams<F>),
+    NegativeBinomial(NegativeBinomialParams<F>),
 }
 
 impl<F: Float> Sampleable for AnyDiscrete<F> {
@@ -221,6 +223,7 @@ impl<F: Float> Sampleable for AnyDiscrete<F> {
         match self {
             Self::DiscreteUniform(d) => d.sample(rng),
             Self::Poisson(d) => d.sample(rng) as i64,
+            Self::NegativeBinomial(d) => d.sample(rng) as i64,
         }
     }
 }
@@ -236,6 +239,13 @@ impl<F: Float> Distribution<F> for AnyDiscrete<F> {
                     d.log_pdf(&(*x as u64))
                 }
             }
+            Self::NegativeBinomial(d) => {
+                if *x < 0 {
+                    F::neg_infinity()
+                } else {
+                    d.log_pdf(&(*x as u64))
+                }
+            }
         }
     }
 
@@ -243,6 +253,13 @@ impl<F: Float> Distribution<F> for AnyDiscrete<F> {
         match self {
             Self::DiscreteUniform(d) => d.pdf(x),
             Self::Poisson(d) => {
+                if *x < 0 {
+                    F::zero()
+                } else {
+                    d.pdf(&(*x as u64))
+                }
+            }
+            Self::NegativeBinomial(d) => {
                 if *x < 0 {
                     F::zero()
                 } else {
@@ -266,6 +283,13 @@ impl<F: Float> UnivariateDiscrete<F, i64> for AnyDiscrete<F> {
                     d.cdf(x as u64)
                 }
             }
+            Self::NegativeBinomial(d) => {
+                if x < 0 {
+                    F::zero()
+                } else {
+                    d.cdf(x as u64)
+                }
+            }
         }
     }
 
@@ -279,14 +303,22 @@ impl<F: Float> UnivariateDiscrete<F, i64> for AnyDiscrete<F> {
                     d.ccdf(x as u64)
                 }
             }
+            Self::NegativeBinomial(d) => {
+                if x < 0 {
+                    F::one()
+                } else {
+                    d.ccdf(x as u64)
+                }
+            }
         }
     }
 
     fn inverse_cdf(&self, p: F) -> i64 {
         match self {
             Self::DiscreteUniform(d) => d.inverse_cdf(p),
-            // Poisson counts fit i64; clamp the q=1 sentinel (u64::MAX).
+            // Counts fit i64; clamp the q=1 sentinel (u64::MAX).
             Self::Poisson(d) => d.inverse_cdf(p).min(i64::MAX as u64) as i64,
+            Self::NegativeBinomial(d) => d.inverse_cdf(p).min(i64::MAX as u64) as i64,
         }
     }
 
@@ -297,6 +329,10 @@ impl<F: Float> UnivariateDiscrete<F, i64> for AnyDiscrete<F> {
                 let (lo, hi) = d.support();
                 (lo as i64, hi.min(i64::MAX as u64) as i64)
             }
+            Self::NegativeBinomial(d) => {
+                let (lo, hi) = d.support();
+                (lo as i64, hi.min(i64::MAX as u64) as i64)
+            }
         }
     }
 
@@ -304,6 +340,7 @@ impl<F: Float> UnivariateDiscrete<F, i64> for AnyDiscrete<F> {
         match self {
             Self::DiscreteUniform(d) => AnyDiscreteParams::DiscreteUniform(d.params()),
             Self::Poisson(d) => AnyDiscreteParams::Poisson(d.params()),
+            Self::NegativeBinomial(d) => AnyDiscreteParams::NegativeBinomial(d.params()),
         }
     }
 
@@ -313,6 +350,9 @@ impl<F: Float> UnivariateDiscrete<F, i64> for AnyDiscrete<F> {
                 Self::DiscreteUniform(DiscreteUniform::from_params(p)?)
             }
             AnyDiscreteParams::Poisson(p) => Self::Poisson(Poisson::from_params(p)?),
+            AnyDiscreteParams::NegativeBinomial(p) => {
+                Self::NegativeBinomial(NegativeBinomial::from_params(p)?)
+            }
         })
     }
 }
@@ -326,6 +366,12 @@ impl<F: Float> From<DiscreteUniform<F>> for AnyDiscrete<F> {
 impl<F: Float> From<Poisson<F>> for AnyDiscrete<F> {
     fn from(d: Poisson<F>) -> Self {
         Self::Poisson(d)
+    }
+}
+
+impl<F: Float> From<NegativeBinomial<F>> for AnyDiscrete<F> {
+    fn from(d: NegativeBinomial<F>) -> Self {
+        Self::NegativeBinomial(d)
     }
 }
 
@@ -473,6 +519,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn discrete_negative_binomial_from_params_and_delegation() {
+        let p = AnyDiscreteParams::NegativeBinomial(NegativeBinomialParams::RP { r: 5.0, p: 0.5 });
+        let d = AnyDiscrete::<f64>::from_params(p).unwrap();
+        assert_eq!(d.support(), (0, i64::MAX));
+        // pmf(0) for NB(5, 0.5) = p^r = 0.5^5 = 0.03125
+        assert!((d.pdf(&0) - 0.03125).abs() < 1e-12);
+        assert_eq!(d.pdf(&-1), 0.0);
+        assert_eq!(d.cdf(-1), 0.0);
+    }
+
+    #[test]
+    fn discrete_negative_binomial_via_from_and_sample() {
+        let d: AnyDiscrete<f64> = NegativeBinomial::new(5.0, 0.5).unwrap().into();
+        use rand::SeedableRng;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
+        for _ in 0..1000 {
+            let k = d.sample(&mut rng);
+            assert!(k >= 0);
+            assert!(d.pdf(&k) > 0.0);
+        }
+    }
+
     #[cfg(feature = "serde")]
     #[test]
     fn continuous_json_round_trip() {
@@ -562,6 +631,15 @@ mod tests {
         let d = AnyDiscrete::from(Poisson::<f64>::new(4.0).unwrap());
         let s = d.to_json_string();
         assert_eq!(s, r#"{"type":"Poisson","lambda":4.0}"#);
+        let d2 = AnyDiscrete::<f64>::from_json_str(&s).unwrap();
+        assert_eq!(d, d2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn discrete_negative_binomial_json_round_trip() {
+        let d = AnyDiscrete::from(NegativeBinomial::<f64>::new(5.0, 0.5).unwrap());
+        let s = d.to_json_string();
         let d2 = AnyDiscrete::<f64>::from_json_str(&s).unwrap();
         assert_eq!(d, d2);
     }

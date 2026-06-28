@@ -490,6 +490,66 @@ generate_poisson <- function(out_root) {
   write_json(data, file.path(out_root, "discrete", "poisson", "test_reference.json"))
 }
 
+generate_negative_binomial <- function(out_root) {
+  parameterizations <- list(
+    c(1.0, 0.5), c(5.0, 0.5), c(5.0, 0.3),
+    c(10.0, 0.8), c(0.5, 0.5), c(20.0, 0.1)
+  )
+  quantile_probs <- c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+
+  cases <- lapply(parameterizations, function(rp) {
+    r <- rp[1]; p <- rp[2]
+    # NegBin(r, p), R convention matches SciPy nbinom: size = r, prob = p;
+    # support k in {0, 1, 2, ...} (failures before the r-th success).
+    mean_val <- r * (1 - p) / p
+    variance <- r * (1 - p) / p^2
+    std      <- sqrt(variance)
+    entropy_upper <- max(100L, as.integer(mean_val + 20 * std))
+    entropy  <- discrete_entropy(function(k) dnbinom(k, size = r, prob = p), 0L, entropy_upper)
+    moments <- make_moments(
+      mean     = mean_val,
+      variance = variance,
+      skewness = (2 - p) / sqrt(r * (1 - p)),
+      kurtosis = 6 / r + p^2 / (r * (1 - p)),            # excess
+      entropy  = entropy
+    )
+
+    hi <- max(as.integer(mean_val + 4 * std), 10L)
+    support_points <- sort(unique(c(
+      0L, 1L,
+      max(0L, as.integer(mean_val - 2 * std)),
+      max(0L, as.integer(mean_val - std)),
+      as.integer(mean_val),
+      as.integer(mean_val + std),
+      as.integer(mean_val + 2 * std),
+      hi
+    )))
+    points <- as.numeric(c(-1L, support_points))
+
+    pdf_fn     <- function(x) dnbinom(x, size = r, prob = p)
+    cdf_fn     <- function(x) pnbinom(x, size = r, prob = p)
+    log_pdf_fn <- function(x) dnbinom(x, size = r, prob = p, log = TRUE)
+    quant_fn   <- function(q) qnbinom(q, size = r, prob = p)
+
+    list(
+      params     = list(a = unbox(r), b = unbox(p)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(0),
+        cdf_pos_inf           = unbox(1),
+        log_pdf_below_support = unbox(safe_num(dnbinom(-1L, size = r, prob = p, log = TRUE))),
+        log_pdf_above_support = unbox(safe_num(dnbinom(hi + 1L, size = r, prob = p, log = TRUE)))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("NegativeBinomial"), cases = cases)
+  write_json(data, file.path(out_root, "discrete", "negative_binomial", "test_reference.json"))
+}
+
 # ── Main ────────────────────────────────────────────────────────────────
 
 main <- function() {
@@ -501,6 +561,7 @@ main <- function() {
   generate_gamma(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
   generate_poisson(UNIV_ROOT)
+  generate_negative_binomial(UNIV_ROOT)
   cat("Done.\n")
 }
 

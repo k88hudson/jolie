@@ -61,3 +61,8 @@ path = "src/distributions/univariate/discrete/discrete_uniform/bench.rs"
 name = "poisson"
 harness = false
 path = "src/distributions/univariate/discrete/poisson/bench.rs"
+
+[[bench]]
+name = "negative_binomial"
+harness = false
+path = "src/distributions/univariate/discrete/negative_binomial/bench.rs"
