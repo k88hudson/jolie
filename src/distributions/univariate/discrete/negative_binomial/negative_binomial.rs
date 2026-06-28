@@ -727,4 +727,19 @@ mod tests {
         assert_eq!(d.r(), d2.r());
         assert_eq!(d.p(), d2.p());
     }
+
+    // Pearson chi-square goodness-of-fit on the Gamma-Poisson mixture sampler,
+    // a stronger check than per-bin binomial CIs (uses the survival p-value).
+    #[test]
+    fn sampling_chi_square_gof() {
+        let mut rng = test_rng();
+        for &(r, p) in &[(5.0, 0.5), (10.0, 0.6), (2.0, 0.3)] {
+            let d = NegativeBinomial::<f64>::new(r, p).unwrap();
+            let mean = r * (1.0 - p) / p;
+            let std = (r * (1.0 - p)).sqrt() / p;
+            let hi = (mean + 8.0 * std).ceil() as u64;
+            let pval = chi_square_pmf_pvalue::<_, f64, _>(&d, &mut rng, 200_000, (0, hi));
+            assert!(pval > 0.001, "NB(r={r},p={p}) chi-square GoF p={pval}");
+        }
+    }
 }
