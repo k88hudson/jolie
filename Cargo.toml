@@ -53,6 +53,11 @@ harness = false
 path = "src/distributions/univariate/continuous/gamma/bench.rs"
 
 [[bench]]
+name = "weibull"
+harness = false
+path = "src/distributions/univariate/continuous/weibull/bench.rs"
+
+[[bench]]
 name = "discrete_uniform"
 harness = false
 path = "src/distributions/univariate/discrete/discrete_uniform/bench.rs"

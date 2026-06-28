@@ -92,6 +92,28 @@ where
         + HasMode<Value = f64>,
     C: Fn(f64, f64) -> D,
 {
+    run_continuous_reference_tests_with_moment_tol(make_dist, reference, tol, tol);
+}
+
+/// Like [`run_continuous_reference_tests`] but with a separate `moment_tol` for
+/// skewness and kurtosis. Those combine several gamma-function evaluations with
+/// heavy cancellation (e.g. Weibull), so they carry more error than the tight
+/// `tol` used for pdf/cdf and the lower moments.
+pub fn run_continuous_reference_tests_with_moment_tol<D, C>(
+    make_dist: C,
+    reference: &ReferenceData,
+    tol: f64,
+    moment_tol: f64,
+) where
+    D: UnivariateContinuous<f64>
+        + HasMean<Value = f64>
+        + HasVariance
+        + HasEntropy<Value = f64>
+        + HasSkewness<Value = f64>
+        + HasKurtosis<Value = f64>
+        + HasMode<Value = f64>,
+    C: Fn(f64, f64) -> D,
+{
     for case in &reference.cases {
         let dist = make_dist(case.params.a, case.params.b);
 
@@ -104,10 +126,22 @@ where
             assert_close(dist.variance().unwrap(), expected, tol, "variance", case);
         }
         if let Some(expected) = m.skewness {
-            assert_close(dist.skewness().unwrap(), expected, tol, "skewness", case);
+            assert_close(
+                dist.skewness().unwrap(),
+                expected,
+                moment_tol,
+                "skewness",
+                case,
+            );
         }
         if let Some(expected) = m.kurtosis {
-            assert_close(dist.kurtosis().unwrap(), expected, tol, "kurtosis", case);
+            assert_close(
+                dist.kurtosis().unwrap(),
+                expected,
+                moment_tol,
+                "kurtosis",
+                case,
+            );
         }
         if let Some(expected) = m.entropy {
             assert_close(dist.entropy().unwrap(), expected, tol, "entropy", case);

@@ -15,7 +15,7 @@ use crate::error::DistributionError;
 use super::{
     DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Gamma, GammaParams,
     LogNormal, LogNormalParams, NegativeBinomial, NegativeBinomialParams, Normal, NormalParams,
-    Poisson, PoissonParams, Uniform, UniformParams,
+    Poisson, PoissonParams, Uniform, UniformParams, Weibull, WeibullParams,
 };
 
 // ============================== Continuous ==============================
@@ -28,6 +28,7 @@ pub enum AnyContinuous<F: Float> {
     Normal(Normal<F>),
     LogNormal(LogNormal<F>),
     Gamma(Gamma<F>),
+    Weibull(Weibull<F>),
 }
 
 /// Serializable parameters for [`AnyContinuous`], internally tagged by `"type"`.
@@ -40,6 +41,7 @@ pub enum AnyContinuousParams<F> {
     Normal(NormalParams<F>),
     LogNormal(LogNormalParams<F>),
     Gamma(GammaParams<F>),
+    Weibull(WeibullParams<F>),
 }
 
 impl<F: Float> Sampleable for AnyContinuous<F> {
@@ -53,6 +55,7 @@ impl<F: Float> Sampleable for AnyContinuous<F> {
             Self::Normal(d) => d.sample(rng),
             Self::LogNormal(d) => d.sample(rng),
             Self::Gamma(d) => d.sample(rng),
+            Self::Weibull(d) => d.sample(rng),
         }
     }
 }
@@ -65,6 +68,7 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
             Self::Normal(d) => d.log_pdf(x),
             Self::LogNormal(d) => d.log_pdf(x),
             Self::Gamma(d) => d.log_pdf(x),
+            Self::Weibull(d) => d.log_pdf(x),
         }
     }
 
@@ -75,6 +79,7 @@ impl<F: Float> Distribution<F> for AnyContinuous<F> {
             Self::Normal(d) => d.pdf(x),
             Self::LogNormal(d) => d.pdf(x),
             Self::Gamma(d) => d.pdf(x),
+            Self::Weibull(d) => d.pdf(x),
         }
     }
 }
@@ -89,6 +94,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Normal(d) => d.cdf(x),
             Self::LogNormal(d) => d.cdf(x),
             Self::Gamma(d) => d.cdf(x),
+            Self::Weibull(d) => d.cdf(x),
         }
     }
 
@@ -99,6 +105,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Normal(d) => d.inverse_cdf(p),
             Self::LogNormal(d) => d.inverse_cdf(p),
             Self::Gamma(d) => d.inverse_cdf(p),
+            Self::Weibull(d) => d.inverse_cdf(p),
         }
     }
 
@@ -109,6 +116,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Normal(d) => d.ccdf(x),
             Self::LogNormal(d) => d.ccdf(x),
             Self::Gamma(d) => d.ccdf(x),
+            Self::Weibull(d) => d.ccdf(x),
         }
     }
 
@@ -119,6 +127,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Normal(d) => d.support(),
             Self::LogNormal(d) => d.support(),
             Self::Gamma(d) => d.support(),
+            Self::Weibull(d) => d.support(),
         }
     }
 
@@ -129,6 +138,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             Self::Normal(d) => AnyContinuousParams::Normal(d.params()),
             Self::LogNormal(d) => AnyContinuousParams::LogNormal(d.params()),
             Self::Gamma(d) => AnyContinuousParams::Gamma(d.params()),
+            Self::Weibull(d) => AnyContinuousParams::Weibull(d.params()),
         }
     }
 
@@ -139,6 +149,7 @@ impl<F: Float> UnivariateContinuous<F> for AnyContinuous<F> {
             AnyContinuousParams::Normal(p) => Self::Normal(Normal::from_params(p)?),
             AnyContinuousParams::LogNormal(p) => Self::LogNormal(LogNormal::from_params(p)?),
             AnyContinuousParams::Gamma(p) => Self::Gamma(Gamma::from_params(p)?),
+            AnyContinuousParams::Weibull(p) => Self::Weibull(Weibull::from_params(p)?),
         })
     }
 }
@@ -170,6 +181,12 @@ impl<F: Float> From<LogNormal<F>> for AnyContinuous<F> {
 impl<F: Float> From<Gamma<F>> for AnyContinuous<F> {
     fn from(d: Gamma<F>) -> Self {
         Self::Gamma(d)
+    }
+}
+
+impl<F: Float> From<Weibull<F>> for AnyContinuous<F> {
+    fn from(d: Weibull<F>) -> Self {
+        Self::Weibull(d)
     }
 }
 
@@ -484,6 +501,20 @@ mod tests {
     }
 
     #[test]
+    fn continuous_weibull_from_params_and_delegation() {
+        // Weibull(1, scale) is Exponential(scale): cdf(x) = 1 - e^(-x/scale).
+        let p = AnyContinuousParams::Weibull(WeibullParams {
+            shape: 1.0,
+            scale: 2.0,
+        });
+        let d = AnyContinuous::<f64>::from_params(p).unwrap();
+        assert_eq!(d.support(), (0.0, f64::INFINITY));
+        assert!((d.cdf(2.0) - (1.0 - (-1.0_f64).exp())).abs() < 1e-12);
+        assert!((d.ccdf(2.0) - (-1.0_f64).exp()).abs() < 1e-12);
+        assert!((d.inverse_cdf(0.5) - 2.0 * 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
     fn discrete_from_params_and_delegation() {
         let p = AnyDiscreteParams::DiscreteUniform(DiscreteUniformParams { a: 0, b: 9 });
         let d = AnyDiscrete::<f64>::from_params(p).unwrap();
@@ -613,6 +644,16 @@ mod tests {
             AnyContinuous::Gamma(g) => assert!((g.scale() - 2.0).abs() < 1e-12),
             _ => panic!("expected Gamma"),
         }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn continuous_weibull_json_round_trip() {
+        let d = AnyContinuous::from(Weibull::<f64>::new(1.5, 2.0).unwrap());
+        let s = d.to_json_string();
+        assert_eq!(s, r#"{"type":"Weibull","shape":1.5,"scale":2.0}"#);
+        let d2 = AnyContinuous::<f64>::from_json_str(&s).unwrap();
+        assert_eq!(d, d2);
     }
 
     #[cfg(feature = "serde")]

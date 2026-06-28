@@ -435,6 +435,72 @@ generate_gamma <- function(out_root) {
   write_json(data, file.path(out_root, "continuous", "gamma", "test_reference.json"))
 }
 
+generate_weibull <- function(out_root) {
+  parameterizations <- list(
+    c(1.0, 1.0), c(2.0, 1.0), c(5.0, 2.0), c(0.5, 1.0),
+    c(10.0, 1.0), c(1.5, 2.0), c(3.0, 0.5)
+  )
+  quantile_probs <- c(0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
+  # Nearest f64 to γ; matches jolie's EULER_MASCHERONI (R's -digamma(1) is 5 ULP off).
+  EULER <- 0.57721566490153286
+
+  cases <- lapply(parameterizations, function(ss) {
+    shape <- ss[1]; scale <- ss[2]
+    # Analytic closed-form moments for Weibull(shape=α, scale=θ); g_n = Γ(1 + n/α).
+    g1 <- gamma(1 + 1 / shape)
+    g2 <- gamma(1 + 2 / shape)
+    g3 <- gamma(1 + 3 / shape)
+    g4 <- gamma(1 + 4 / shape)
+    mean_val <- scale * g1
+    variance <- scale^2 * (g2 - g1^2)
+    std      <- sqrt(variance)
+    # Mode at 0 for α ≤ 1; θ·((α-1)/α)^(1/α) for α > 1.
+    mode_val <- if (shape > 1) scale * ((shape - 1) / shape)^(1 / shape) else 0.0
+    moments <- make_moments(
+      mean     = mean_val,
+      variance = variance,
+      skewness = (g3 - 3 * g1 * g2 + 2 * g1^3) / (g2 - g1^2)^(3 / 2),
+      kurtosis = (g4 - 4 * g1 * g3 + 12 * g1^2 * g2 - 3 * g2^2 - 6 * g1^4) /
+                 (g2 - g1^2)^2,                                        # excess
+      entropy  = EULER * (1 - 1 / shape) + log(scale / shape) + 1,
+      mode     = mode_val
+    )
+
+    low <- max(0.01, mean_val - 2 * std)
+    points <- sort(unique(c(
+      0.0, low, max(0.1, mean_val - std), mean_val * 0.5,
+      mean_val, mean_val + std, mean_val + 2 * std, mean_val + 3 * std
+    )))
+
+    pdf_fn     <- function(x) dweibull(x, shape = shape, scale = scale)
+    cdf_fn     <- function(x) pweibull(x, shape = shape, scale = scale)
+    log_pdf_fn <- function(x) dweibull(x, shape = shape, scale = scale, log = TRUE)
+    quant_fn   <- function(p) qweibull(p, shape = shape, scale = scale)
+
+    log_pdf_below <- dweibull(qweibull(0, shape = shape, scale = scale) - 1,
+                              shape = shape, scale = scale, log = TRUE)
+    log_pdf_above <- dweibull(qweibull(1, shape = shape, scale = scale) + 1,
+                              shape = shape, scale = scale, log = TRUE)
+
+    list(
+      params     = list(a = unbox(shape), b = unbox(scale)),
+      moments    = moments,
+      pdf_cdf    = make_point_evals(points, pdf_fn, cdf_fn, log_pdf_fn),
+      quantiles  = make_quantiles(quantile_probs, quant_fn),
+      edge_cases = list(
+        pdf_nan               = unbox(NA_real_),
+        cdf_neg_inf           = unbox(pweibull(-Inf, shape = shape, scale = scale)),
+        cdf_pos_inf           = unbox(pweibull(Inf,  shape = shape, scale = scale)),
+        log_pdf_below_support = unbox(safe_num(log_pdf_below)),
+        log_pdf_above_support = unbox(safe_num(log_pdf_above))
+      )
+    )
+  })
+
+  data <- list(distribution = unbox("Weibull"), cases = cases)
+  write_json(data, file.path(out_root, "continuous", "weibull", "test_reference.json"))
+}
+
 generate_poisson <- function(out_root) {
   lambdas <- c(1.0, 0.1, 5.0, 10.0, 50.0, 100.0)
   quantile_probs <- c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0)
@@ -559,6 +625,7 @@ main <- function() {
   generate_normal(UNIV_ROOT)
   generate_lognormal(UNIV_ROOT)
   generate_gamma(UNIV_ROOT)
+  generate_weibull(UNIV_ROOT)
   generate_discrete_uniform(UNIV_ROOT)
   generate_poisson(UNIV_ROOT)
   generate_negative_binomial(UNIV_ROOT)
