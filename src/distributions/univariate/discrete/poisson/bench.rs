@@ -10,7 +10,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use jolie::distributions::*;
 
 use rand::rngs::StdRng;
-use rand::{RngExt as _, SeedableRng};
+use rand::{Rng as _, SeedableRng};
 use rand_distr::Poisson as RandPoisson;
 
 // statrs 0.18 samples through rand 0.8 (aliased `rand08`).

@@ -1,5 +1,5 @@
 use num_traits::Float;
-use rand::{Rng, RngExt};
+use rand::Rng;
 
 use crate::constants::SQRT_2PI;
 use crate::distributions::traits::*;

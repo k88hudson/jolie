@@ -2,7 +2,7 @@
 //! Apache-2.0 / MIT).
 
 use super::ziggurat_tables;
-use rand::{Rng, RngExt};
+use rand::Rng;
 
 /// Sample from the standard normal N(0,1) via the ziggurat method.
 #[inline]
@@ -185,30 +185,27 @@ mod tests {
     // deterministically; the fixed form returns exactly R.
     #[test]
     fn standard_exponential_tail_u_zero_returns_r() {
-        use rand::TryRng;
-        use std::convert::Infallible;
+        use rand::RngCore;
 
         struct MockRng {
             values: Vec<u64>,
             pos: usize,
         }
-        impl TryRng for MockRng {
-            type Error = Infallible;
-            fn try_next_u32(&mut self) -> Result<u32, Infallible> {
-                Ok(self.try_next_u64()? as u32)
+        impl RngCore for MockRng {
+            fn next_u32(&mut self) -> u32 {
+                self.next_u64() as u32
             }
-            fn try_next_u64(&mut self) -> Result<u64, Infallible> {
+            fn next_u64(&mut self) -> u64 {
                 let v = self.values.get(self.pos).copied().unwrap_or(0);
                 self.pos += 1;
-                Ok(v)
+                v
             }
-            fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Infallible> {
+            fn fill_bytes(&mut self, dst: &mut [u8]) {
                 for chunk in dst.chunks_mut(8) {
-                    let bytes = self.try_next_u64()?.to_le_bytes();
+                    let bytes = self.next_u64().to_le_bytes();
                     let n = chunk.len().min(8);
                     chunk[..n].copy_from_slice(&bytes[..n]);
                 }
-                Ok(())
             }
         }
 

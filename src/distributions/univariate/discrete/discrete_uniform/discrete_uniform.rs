@@ -1,5 +1,5 @@
 use num_traits::Float;
-use rand::{Rng, RngExt};
+use rand::Rng;
 
 use crate::distributions::traits::*;
 use crate::error::DistributionError;
