@@ -14,7 +14,8 @@ use crate::error::DistributionError;
 
 use super::{
     DiscreteUniform, DiscreteUniformParams, Exponential, ExponentialParams, Gamma, GammaParams,
-    LogNormal, LogNormalParams, Normal, NormalParams, Uniform, UniformParams,
+    LogNormal, LogNormalParams, Normal, NormalParams, Poisson, PoissonParams, Uniform,
+    UniformParams,
 };
 
 // ============================== Continuous ==============================
@@ -194,18 +195,22 @@ impl<F: Float + serde::Serialize> AnyContinuous<F> {
 
 /// Any supported discrete distribution behind a single enum.
 ///
-/// Values are `i64`; all current discrete distributions share that value type.
+/// Values are `i64`. Count distributions like `Poisson` are u64-native and
+/// exposed through this i64 view; a negative argument is treated as out of
+/// support. The native typed distribution keeps its u64 API.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AnyDiscrete<F: Float> {
     DiscreteUniform(DiscreteUniform<F>),
+    Poisson(Poisson<F>),
 }
 
 /// Serializable parameters for [`AnyDiscrete`], internally tagged by `"type"`.
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
-pub enum AnyDiscreteParams {
+pub enum AnyDiscreteParams<F> {
     DiscreteUniform(DiscreteUniformParams),
+    Poisson(PoissonParams<F>),
 }
 
 impl<F: Float> Sampleable for AnyDiscrete<F> {
@@ -215,6 +220,7 @@ impl<F: Float> Sampleable for AnyDiscrete<F> {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> i64 {
         match self {
             Self::DiscreteUniform(d) => d.sample(rng),
+            Self::Poisson(d) => d.sample(rng) as i64,
         }
     }
 }
@@ -223,48 +229,90 @@ impl<F: Float> Distribution<F> for AnyDiscrete<F> {
     fn log_pdf(&self, x: &i64) -> F {
         match self {
             Self::DiscreteUniform(d) => d.log_pdf(x),
+            Self::Poisson(d) => {
+                if *x < 0 {
+                    F::neg_infinity()
+                } else {
+                    d.log_pdf(&(*x as u64))
+                }
+            }
         }
     }
 
     fn pdf(&self, x: &i64) -> F {
         match self {
             Self::DiscreteUniform(d) => d.pdf(x),
+            Self::Poisson(d) => {
+                if *x < 0 {
+                    F::zero()
+                } else {
+                    d.pdf(&(*x as u64))
+                }
+            }
         }
     }
 }
 
 impl<F: Float> UnivariateDiscrete<F, i64> for AnyDiscrete<F> {
-    type Params = AnyDiscreteParams;
+    type Params = AnyDiscreteParams<F>;
 
     fn cdf(&self, x: i64) -> F {
         match self {
             Self::DiscreteUniform(d) => d.cdf(x),
+            Self::Poisson(d) => {
+                if x < 0 {
+                    F::zero()
+                } else {
+                    d.cdf(x as u64)
+                }
+            }
+        }
+    }
+
+    fn ccdf(&self, x: i64) -> F {
+        match self {
+            Self::DiscreteUniform(d) => d.ccdf(x),
+            Self::Poisson(d) => {
+                if x < 0 {
+                    F::one()
+                } else {
+                    d.ccdf(x as u64)
+                }
+            }
         }
     }
 
     fn inverse_cdf(&self, p: F) -> i64 {
         match self {
             Self::DiscreteUniform(d) => d.inverse_cdf(p),
+            // Poisson counts fit i64; clamp the q=1 sentinel (u64::MAX).
+            Self::Poisson(d) => d.inverse_cdf(p).min(i64::MAX as u64) as i64,
         }
     }
 
     fn support(&self) -> (i64, i64) {
         match self {
             Self::DiscreteUniform(d) => d.support(),
+            Self::Poisson(d) => {
+                let (lo, hi) = d.support();
+                (lo as i64, hi.min(i64::MAX as u64) as i64)
+            }
         }
     }
 
-    fn params(&self) -> AnyDiscreteParams {
+    fn params(&self) -> AnyDiscreteParams<F> {
         match self {
             Self::DiscreteUniform(d) => AnyDiscreteParams::DiscreteUniform(d.params()),
+            Self::Poisson(d) => AnyDiscreteParams::Poisson(d.params()),
         }
     }
 
-    fn from_params(params: AnyDiscreteParams) -> Result<Self, DistributionError> {
+    fn from_params(params: AnyDiscreteParams<F>) -> Result<Self, DistributionError> {
         Ok(match params {
             AnyDiscreteParams::DiscreteUniform(p) => {
                 Self::DiscreteUniform(DiscreteUniform::from_params(p)?)
             }
+            AnyDiscreteParams::Poisson(p) => Self::Poisson(Poisson::from_params(p)?),
         })
     }
 }
@@ -275,16 +323,25 @@ impl<F: Float> From<DiscreteUniform<F>> for AnyDiscrete<F> {
     }
 }
 
+impl<F: Float> From<Poisson<F>> for AnyDiscrete<F> {
+    fn from(d: Poisson<F>) -> Self {
+        Self::Poisson(d)
+    }
+}
+
 #[cfg(feature = "serde")]
-impl<F: Float> AnyDiscrete<F> {
+impl<F: Float + serde::de::DeserializeOwned> AnyDiscrete<F> {
     /// Parse a tagged JSON object (e.g. `{"type":"DiscreteUniform","a":0,"b":9}`)
     /// and construct the validated distribution.
     pub fn from_json_str(s: &str) -> Result<Self, DistributionError> {
-        let params: AnyDiscreteParams = serde_json::from_str(s)
+        let params: AnyDiscreteParams<F> = serde_json::from_str(s)
             .map_err(|_| DistributionError::InvalidParameter("invalid JSON"))?;
         Self::from_params(params)
     }
+}
 
+#[cfg(feature = "serde")]
+impl<F: Float + serde::Serialize> AnyDiscrete<F> {
     pub fn to_json_string(&self) -> String {
         serde_json::to_string(&self.params()).expect("params serialization cannot fail")
     }
@@ -389,6 +446,33 @@ mod tests {
         assert!((d.cdf(4) - 0.5).abs() < 1e-12);
     }
 
+    #[test]
+    fn discrete_poisson_from_params_and_delegation() {
+        // Poisson is u64-native; AnyDiscrete exposes it through the i64 view.
+        let p = AnyDiscreteParams::Poisson(PoissonParams { lambda: 4.0 });
+        let d = AnyDiscrete::<f64>::from_params(p).unwrap();
+        assert_eq!(d.support(), (0, i64::MAX));
+        // pmf(2) for Poisson(4) = e^-4 * 4^2 / 2! = 8 e^-4
+        assert!((d.pdf(&2) - 8.0 * (-4.0_f64).exp()).abs() < 1e-12);
+        // negative argument is out of support
+        assert_eq!(d.pdf(&-1), 0.0);
+        assert_eq!(d.cdf(-1), 0.0);
+        assert_eq!(d.log_pdf(&-3), f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn discrete_poisson_via_from_and_sample() {
+        // Mirrors abcsmc's `discrete(Poisson::new(..))` path: From + sample + pdf.
+        let d: AnyDiscrete<f64> = Poisson::new(5.0).unwrap().into();
+        use rand::SeedableRng;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1);
+        for _ in 0..1000 {
+            let k = d.sample(&mut rng);
+            assert!(k >= 0);
+            assert!(d.pdf(&k) > 0.0);
+        }
+    }
+
     #[cfg(feature = "serde")]
     #[test]
     fn continuous_json_round_trip() {
@@ -468,6 +552,16 @@ mod tests {
         let d = AnyDiscrete::from(DiscreteUniform::<f64>::new(0, 9).unwrap());
         let s = d.to_json_string();
         assert_eq!(s, r#"{"type":"DiscreteUniform","a":0,"b":9}"#);
+        let d2 = AnyDiscrete::<f64>::from_json_str(&s).unwrap();
+        assert_eq!(d, d2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn discrete_poisson_json_round_trip() {
+        let d = AnyDiscrete::from(Poisson::<f64>::new(4.0).unwrap());
+        let s = d.to_json_string();
+        assert_eq!(s, r#"{"type":"Poisson","lambda":4.0}"#);
         let d2 = AnyDiscrete::<f64>::from_json_str(&s).unwrap();
         assert_eq!(d, d2);
     }
